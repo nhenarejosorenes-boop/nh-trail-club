@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -12,9 +12,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function handleLogin() {
-    setMessage("Iniciando sesión...");
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    setLoading(true);
+    setMessage("");
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -22,7 +26,8 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setMessage("Error: " + error.message);
+      setMessage(error.message);
+      setLoading(false);
       return;
     }
 
@@ -56,85 +61,117 @@ export default function LoginPage() {
           NH TRAINING CONCEPT
         </p>
 
-        <h1>NH TRAIL CLUB</h1>
+        <h1
+          style={{
+            fontSize: "40px",
+            marginBottom: "10px",
+          }}
+        >
+          NH TRAIL CLUB
+        </h1>
 
-        <p style={{ color: "#bbbbbb" }}>
+        <p
+          style={{
+            color: "#bbbbbb",
+            marginBottom: "30px",
+          }}
+        >
           Accede a tu cuenta
         </p>
 
         <div
           style={{
-            marginTop: "30px",
             background: "#1c1c1c",
             padding: "25px",
             borderRadius: "16px",
           }}
         >
-          <input
-            type="email"
-            placeholder="Correo electrónico"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "15px",
-              marginBottom: "15px",
-              borderRadius: "10px",
-              border: "1px solid #444444",
-              background: "#111111",
-              color: "#ffffff",
-              boxSizing: "border-box",
-              fontSize: "16px",
-            }}
-          />
-
-          <input
-            type="password"
-            placeholder="Contraseña"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "15px",
-              marginBottom: "15px",
-              borderRadius: "10px",
-              border: "1px solid #444444",
-              background: "#111111",
-              color: "#ffffff",
-              boxSizing: "border-box",
-              fontSize: "16px",
-            }}
-          />
-
-          <button
-            onClick={handleLogin}
-            style={{
-              width: "100%",
-              background: "#f28c28",
-              color: "#111111",
-              border: "none",
-              padding: "15px",
-              borderRadius: "10px",
-              fontWeight: "bold",
-              fontSize: "16px",
-              cursor: "pointer",
-            }}
-          >
-            Iniciar sesión
-          </button>
-
-          {message && (
-            <p
+          <form onSubmit={handleSubmit}>
+            <label
               style={{
-                marginTop: "20px",
-                color: "#cccccc",
+                display: "block",
+                marginBottom: "8px",
               }}
             >
-              {message}
-            </p>
-          )}
+              Correo electrónico
+            </label>
+
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{
+                width: "100%",
+                padding: "14px",
+                marginBottom: "20px",
+                background: "#111111",
+                color: "#ffffff",
+                border: "1px solid #444444",
+                borderRadius: "10px",
+                boxSizing: "border-box",
+                fontSize: "16px",
+              }}
+            />
+
+            <label
+              style={{
+                display: "block",
+                marginBottom: "8px",
+              }}
+            >
+              Contraseña
+            </label>
+
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              style={{
+                width: "100%",
+                padding: "14px",
+                marginBottom: "22px",
+                background: "#111111",
+                color: "#ffffff",
+                border: "1px solid #444444",
+                borderRadius: "10px",
+                boxSizing: "border-box",
+                fontSize: "16px",
+              }}
+            />
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: "100%",
+                background: "#f28c28",
+                color: "#111111",
+                border: "none",
+                padding: "15px",
+                borderRadius: "10px",
+                fontWeight: "bold",
+                fontSize: "16px",
+                cursor: "pointer",
+              }}
+            >
+              {loading ? "Entrando..." : "Entrar"}
+            </button>
+
+            {message && (
+              <p
+                style={{
+                  marginTop: "18px",
+                  textAlign: "center",
+                }}
+              >
+                {message}
+              </p>
+            )}
+          </form>
         </div>
       </div>
     </main>
   );
-}
+          }
