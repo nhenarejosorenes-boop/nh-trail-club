@@ -24,7 +24,12 @@ export default function Home() {
           NH TRAIL CLUB
         </h1>
 
-        <h2 style={{ fontWeight: "normal", color: "#cccccc" }}>
+        <h2
+          style={{
+            fontWeight: "normal",
+            color: "#cccccc",
+          }}
+        >
           Entrena. Progresa. Disfruta la montaña.
         </h2>
 
@@ -46,10 +51,10 @@ export default function Home() {
           <button
             style={{
               marginTop: "15px",
-              padding: "14px 24px",
               background: "#f28c28",
               color: "#111111",
               border: "none",
+              padding: "14px 22px",
               borderRadius: "10px",
               fontWeight: "bold",
               cursor: "pointer",
