@@ -32,7 +32,7 @@ export default function LoginPage() {
     }
 
     setMessage("Sesión iniciada correctamente");
-    window.location.href = "/";
+    window.location.href = "/dashboard";
   }
 
   return (
