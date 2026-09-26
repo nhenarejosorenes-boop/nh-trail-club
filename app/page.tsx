@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main
@@ -43,25 +45,32 @@ export default function Home() {
         >
           <h2>Tu entrenamiento</h2>
 
-          <p style={{ color: "#bbbbbb" }}>
+          <p
+            style={{
+              color: "#cccccc",
+              fontSize: "18px",
+              lineHeight: "1.5",
+            }}
+          >
             Consulta tus sesiones de fuerza, entrenamientos de trail y próximas
             salidas del club.
           </p>
 
-          <button
+          <Link
+            href="/entrenamientos"
             style={{
+              display: "inline-block",
               marginTop: "15px",
               background: "#f28c28",
               color: "#111111",
-              border: "none",
-              padding: "14px 22px",
+              padding: "15px 25px",
               borderRadius: "10px",
+              textDecoration: "none",
               fontWeight: "bold",
-              cursor: "pointer",
             }}
           >
             Ver entrenamientos
-          </button>
+          </Link>
         </div>
       </div>
     </main>
