@@ -169,6 +169,16 @@ export default function LoginPage() {
                 {message}
               </p>
             )}
+
+<div style={{ textAlign: "center", marginTop: "18px" }}>
+  <a
+    href="/forgot-password"
+    style={{ color: "#f28c28", fontSize: "14px" }}
+  >
+    ¿Has olvidado tu contraseña?
+  </a>
+</div>
+  
           </form>
         </div>
       </div>
