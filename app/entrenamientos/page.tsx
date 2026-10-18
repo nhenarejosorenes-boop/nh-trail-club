@@ -5,27 +5,27 @@ export default function EntrenamientosPage() {
   const entrenamientos = [
     {
       titulo: "Entrenamiento de fuerza",
-      descripcion:
-        "Consulta tus sesiones de fuerza y preparación física.",
+      descripcion: "Consulta tus sesiones de fuerza y preparación física.",
       icono: "💪",
+      href: "/entrenamientos/fuerza",
     },
     {
       titulo: "Entrenamiento Trail Running",
-      descripcion:
-        "Planifica tus sesiones de carrera y montaña.",
+      descripcion: "Planifica tus sesiones de carrera y montaña.",
       icono: "🏔️",
+      href: "/entrenamientos/trail",
     },
     {
       titulo: "Salidas del club",
-      descripcion:
-        "Descubre las próximas salidas y actividades del club.",
+      descripcion: "Descubre las próximas salidas y actividades del club.",
       icono: "🏃",
+      href: "/salidas",
     },
     {
       titulo: "Mi progreso",
-      descripcion:
-        "Consulta tu evolución y seguimiento deportivo.",
+      descripcion: "Consulta tu evolución y seguimiento deportivo.",
       icono: "📈",
+      href: "/dashboard",
     },
   ];
 
@@ -55,18 +55,22 @@ export default function EntrenamientosPage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(250px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
             gap: 20,
           }}
         >
           {entrenamientos.map((item) => (
-            <div
+            <Link
               key={item.titulo}
+              href={item.href}
               style={{
+                display: "block",
                 backgroundColor: "#202020",
                 borderRadius: 14,
                 padding: 25,
+                color: "white",
+                textDecoration: "none",
+                cursor: "pointer",
               }}
             >
               <div style={{ fontSize: 32 }}>{item.icono}</div>
@@ -78,7 +82,7 @@ export default function EntrenamientosPage() {
               <p style={{ color: "#cccccc", lineHeight: 1.6 }}>
                 {item.descripcion}
               </p>
-            </div>
+            </Link>
           ))}
         </div>
 
