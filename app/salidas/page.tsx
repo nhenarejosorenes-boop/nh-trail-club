@@ -25,9 +25,15 @@ type Inscripcion = {
   user_id: string;
 };
 
+type Plazas = {
+  inscritos: number;
+  plazas_disponibles: number | null;
+};
+
 export default function SalidasPage() {
   const [actividades, setActividades] = useState<Actividad[]>([]);
   const [inscripciones, setInscripciones] = useState<Inscripcion[]>([]);
+  const [plazas, setPlazas] = useState<Record<string, Plazas>>({});
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [procesando, setProcesando] = useState<string | null>(null);
@@ -62,7 +68,66 @@ export default function SalidasPage() {
       return;
     }
 
-    setActividades(actividadesData || []);
+    const lista = actividadesData || [];
+    setActividades(lista);
+
+    // Consultar las plazas reales de cada actividad.
+    const resultados = await Promise.all(
+      lista.map(async (actividad) => {
+        const { data, error: plazasError } = await supabase.rpc(
+          "obtener_plazas_actividad",
+          { p_activity_id: actividad.id }
+        );
+
+        if (plazasError) {
+          return {
+            id: actividad.id,
+            plazas: null,
+            error: plazasError.message,
+          };
+        }
+
+        const resultado = Array.isArray(data) ? data[0] : data;
+
+        if (!resultado) {
+          return {
+            id: actividad.id,
+            plazas: null,
+            error: "No se pudieron obtener las plazas.",
+          };
+        }
+
+        return {
+          id: actividad.id,
+          plazas: {
+            inscritos: Number(resultado.inscritos),
+            plazas_disponibles:
+              resultado.plazas_disponibles === null
+                ? null
+                : Number(resultado.plazas_disponibles),
+          },
+          error: null,
+        };
+      })
+    );
+
+    const nuevasPlazas: Record<string, Plazas> = {};
+
+    for (const resultado of resultados) {
+      if (resultado.plazas) {
+        nuevasPlazas[resultado.id] = resultado.plazas;
+      }
+    }
+
+    setPlazas(nuevasPlazas);
+
+    const errorPlazas = resultados.find((r) => r.error);
+    if (errorPlazas) {
+      setError(
+        "No se pudieron consultar todas las plazas: " +
+          errorPlazas.error
+      );
+    }
 
     if (userId) {
       const { data: inscripcionesData, error: inscripcionesError } =
@@ -84,7 +149,7 @@ export default function SalidasPage() {
   }
 
   useEffect(() => {
-    cargarDatos();
+    void cargarDatos();
   }, []);
 
   async function inscribirse(actividadId: string) {
@@ -101,25 +166,32 @@ export default function SalidasPage() {
 
     setProcesando(actividadId);
 
-    const { error: insertError } = await supabase
-      .from("activity_registrations")
-      .insert({
-        activity_id: actividadId,
-        user_id: authData.user.id,
-      });
+    try {
+      const { error: insertError } = await supabase
+        .from("activity_registrations")
+        .insert({
+          activity_id: actividadId,
+          user_id: authData.user.id,
+        });
 
-    if (insertError) {
-      if (insertError.code === "23505") {
-        setMensaje("Ya estás inscrito en esta actividad.");
+      if (insertError) {
+        if (insertError.code === "23505") {
+          setMensaje("Ya estás inscrito en esta actividad.");
+        } else if (
+          insertError.message.includes("No quedan plazas")
+        ) {
+          setError("Esta actividad ya está completa.");
+        } else {
+          setError(insertError.message);
+        }
       } else {
-        setError(insertError.message);
+        setMensaje("¡Inscripción realizada correctamente!");
       }
-    } else {
-      setMensaje("¡Inscripción realizada correctamente!");
-    }
 
-    await cargarDatos();
-    setProcesando(null);
+      await cargarDatos();
+    } finally {
+      setProcesando(null);
+    }
   }
 
   async function cancelarInscripcion(actividadId: string) {
@@ -136,20 +208,23 @@ export default function SalidasPage() {
 
     setProcesando(actividadId);
 
-    const { error: deleteError } = await supabase
-      .from("activity_registrations")
-      .delete()
-      .eq("activity_id", actividadId)
-      .eq("user_id", authData.user.id);
+    try {
+      const { error: deleteError } = await supabase
+        .from("activity_registrations")
+        .delete()
+        .eq("activity_id", actividadId)
+        .eq("user_id", authData.user.id);
 
-    if (deleteError) {
-      setError(deleteError.message);
-    } else {
-      setMensaje("Inscripción cancelada correctamente.");
+      if (deleteError) {
+        setError(deleteError.message);
+      } else {
+        setMensaje("Inscripción cancelada correctamente.");
+      }
+
+      await cargarDatos();
+    } finally {
+      setProcesando(null);
     }
-
-    await cargarDatos();
-    setProcesando(null);
   }
 
   const boton: React.CSSProperties = {
@@ -230,6 +305,21 @@ export default function SalidasPage() {
           );
 
           const ocupado = procesando === actividad.id;
+          const datosPlazas = plazas[actividad.id];
+
+          const inscritos = datosPlazas?.inscritos ?? 0;
+          const disponibles = datosPlazas?.plazas_disponibles;
+          const maximo = actividad.max_participants;
+
+          const completa =
+            disponibles !== undefined &&
+            disponibles !== null &&
+            disponibles <= 0;
+
+          const porcentaje =
+            maximo !== null && maximo > 0 && datosPlazas
+              ? Math.min(100, (inscritos / maximo) * 100)
+              : 0;
 
           return (
             <div
@@ -263,13 +353,70 @@ export default function SalidasPage() {
               <p>📍 {actividad.location || "Por determinar"}</p>
 
               <p>
-                👥 Plazas máximas:{" "}
-                {actividad.max_participants ?? "Sin límite"}
-              </p>
-
-              <p>
                 🏃 Tipo: {actividad.activity_type || "Actividad"}
               </p>
+
+              <div
+                style={{
+                  marginTop: 25,
+                  padding: 18,
+                  background: "#292929",
+                  borderRadius: 10,
+                }}
+              >
+                {datosPlazas ? (
+                  <>
+                    <p style={{ fontWeight: "bold" }}>
+                      👥 {inscritos} inscritos
+                    </p>
+
+                    <p
+                      style={{
+                        color: completa ? "#ff7777" : "#8ee6a0",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {completa
+                        ? "🔴 Actividad completa"
+                        : disponibles === null
+                        ? "Plazas sin límite"
+                        : `🟢 ${disponibles} plazas disponibles`}
+                    </p>
+
+                    {maximo !== null && maximo > 0 && (
+                      <>
+                        <div
+                          style={{
+                            height: 12,
+                            background: "#444",
+                            borderRadius: 20,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${porcentaje}%`,
+                              height: "100%",
+                              background: completa
+                                ? "#b73b3b"
+                                : "#ff8c1a",
+                              borderRadius: 20,
+                            }}
+                          />
+                        </div>
+
+                        <p style={{ color: "#bbb", fontSize: 13 }}>
+                          {inscritos} de {maximo} plazas ocupadas
+                        </p>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <p style={{ color: "#bbb" }}>
+                    Consultando disponibilidad...
+                  </p>
+                )}
+              </div>
 
               <div style={{ marginTop: 25 }}>
                 {inscrito ? (
@@ -296,6 +443,19 @@ export default function SalidasPage() {
                         : "Cancelar inscripción"}
                     </button>
                   </>
+                ) : completa ? (
+                  <p
+                    style={{
+                      color: "#ff7777",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    No quedan plazas disponibles
+                  </p>
+                ) : !datosPlazas ? (
+                  <p style={{ color: "#bbb" }}>
+                    Inscripción no disponible temporalmente.
+                  </p>
                 ) : usuarioId ? (
                   <button
                     type="button"
