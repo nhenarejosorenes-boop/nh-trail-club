@@ -341,6 +341,18 @@ export default function DeportistasPage() {
               <p>Teléfono: {d.telefono || "Sin especificar"}</p>
 
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+               
+<a
+  href={`/deportistas/${d.id}`}
+  style={{
+    ...boton,
+    display: "inline-block",
+    textDecoration: "none",
+  }}
+>
+  Ver ficha
+</a>
+
                 <button
                   type="button"
                   onClick={() => editarDeportista(d)}
