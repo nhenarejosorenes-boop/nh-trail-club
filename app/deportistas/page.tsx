@@ -26,8 +26,10 @@ export default function DeportistasPage() {
   const [nivel, setNivel] = useState("Iniciación");
   const [busqueda, setBusqueda] = useState("");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState("");
 
   async function cargarDeportistas() {
@@ -51,53 +53,110 @@ export default function DeportistasPage() {
     void cargarDeportistas();
   }, []);
 
-  async function agregarDeportista(e: FormEvent<HTMLFormElement>) {
+  function limpiarFormulario() {
+    setNombre("");
+    setEmail("");
+    setTelefono("");
+    setNivel("Iniciación");
+    setEditandoId(null);
+    setMostrarFormulario(false);
+  }
+
+  function nuevoDeportista() {
+    limpiarFormulario();
+    setMensaje("");
+    setMostrarFormulario(true);
+  }
+
+  function editarDeportista(d: Deportista) {
+    setNombre(d.nombre);
+    setEmail(d.email ?? "");
+    setTelefono(d.telefono ?? "");
+    setNivel(d.nivel ?? "Iniciación");
+    setEditandoId(d.id);
+    setMostrarFormulario(true);
+    setMensaje("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function guardarDeportista(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!nombre.trim() || guardando) return;
 
     setGuardando(true);
     setMensaje("");
 
-    const { error } = await supabase.from("deportistas").insert({
+    const datos = {
       nombre: nombre.trim(),
-      email: email.trim(),
-      telefono: telefono.trim(),
+      email: email.trim() || null,
+      telefono: telefono.trim() || null,
       nivel,
-    });
+    };
 
-    if (error) {
-      setMensaje("Error al guardar: " + error.message);
+    if (editandoId) {
+      const { data, error } = await supabase
+        .from("deportistas")
+        .update(datos)
+        .eq("id", editandoId)
+        .select("id");
+
+      if (error) {
+        setMensaje("Error al actualizar: " + error.message);
+      } else if (!data?.length) {
+        setMensaje("No se pudo actualizar el deportista. Comprueba los permisos.");
+      } else {
+        limpiarFormulario();
+        await cargarDeportistas();
+        setMensaje("Deportista actualizado correctamente.");
+      }
     } else {
-      setNombre("");
-      setEmail("");
-      setTelefono("");
-      setNivel("Iniciación");
-      setMostrarFormulario(false);
-      setMensaje("Deportista guardado correctamente.");
-      await cargarDeportistas();
+      const { data, error } = await supabase
+        .from("deportistas")
+        .insert(datos)
+        .select("id");
+
+      if (error) {
+        setMensaje("Error al guardar: " + error.message);
+      } else if (!data?.length) {
+        setMensaje("No se pudo confirmar el registro. Comprueba los permisos.");
+      } else {
+        limpiarFormulario();
+        await cargarDeportistas();
+        setMensaje("Deportista guardado correctamente.");
+      }
     }
 
     setGuardando(false);
   }
 
   async function eliminarDeportista(id: string) {
-    if (!window.confirm("¿Eliminar este deportista?")) return;
+    if (guardando || eliminandoId) return;
+    if (!window.confirm("¿Eliminar definitivamente este deportista?")) return;
 
-    const { error } = await supabase
+    setEliminandoId(id);
+    setMensaje("");
+
+    const { data, error } = await supabase
       .from("deportistas")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
 
     if (error) {
       setMensaje("Error al eliminar: " + error.message);
+    } else if (!data?.length) {
+      setMensaje("No se pudo eliminar. Comprueba los permisos.");
     } else {
-      setMensaje("Deportista eliminado.");
+      if (editandoId === id) limpiarFormulario();
       await cargarDeportistas();
+      setMensaje("Deportista eliminado correctamente.");
     }
+
+    setEliminandoId(null);
   }
 
   const filtrados = deportistas.filter((d) =>
-    `${d.nombre} ${d.email ?? ""} ${d.telefono ?? ""}`
+    `${d.nombre} ${d.email ?? ""} ${d.telefono ?? ""} ${d.nivel ?? ""}`
       .toLowerCase()
       .includes(busqueda.toLowerCase())
   );
@@ -110,6 +169,7 @@ export default function DeportistasPage() {
     borderRadius: "8px",
     color: "white",
     boxSizing: "border-box" as const,
+    marginTop: "6px",
     marginBottom: "14px",
   };
 
@@ -159,7 +219,10 @@ export default function DeportistasPage() {
           <button
             type="button"
             style={boton}
-            onClick={() => setMostrarFormulario(!mostrarFormulario)}
+            onClick={() =>
+              mostrarFormulario ? limpiarFormulario() : nuevoDeportista()
+            }
+            disabled={guardando}
           >
             {mostrarFormulario ? "Cancelar" : "+ Añadir deportista"}
           </button>
@@ -167,9 +230,11 @@ export default function DeportistasPage() {
 
         {mostrarFormulario && (
           <section style={tarjeta}>
-            <h2>Nuevo deportista</h2>
+            <h2>
+              {editandoId ? "Editar deportista" : "Nuevo deportista"}
+            </h2>
 
-            <form onSubmit={agregarDeportista}>
+            <form onSubmit={guardarDeportista}>
               <label htmlFor="nombre">Nombre y apellidos</label>
               <input
                 id="nombre"
@@ -210,9 +275,28 @@ export default function DeportistasPage() {
                 <option>Competición</option>
               </select>
 
-              <button type="submit" style={boton} disabled={guardando}>
-                {guardando ? "Guardando..." : "Guardar deportista"}
-              </button>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <button type="submit" style={boton} disabled={guardando}>
+                  {guardando
+                    ? "Guardando..."
+                    : editandoId
+                      ? "Guardar cambios"
+                      : "Guardar deportista"}
+                </button>
+
+                <button
+                  type="button"
+                  style={{
+                    ...boton,
+                    background: "#444444",
+                    color: "white",
+                  }}
+                  onClick={limpiarFormulario}
+                  disabled={guardando}
+                >
+                  Cancelar
+                </button>
+              </div>
             </form>
           </section>
         )}
@@ -227,6 +311,7 @@ export default function DeportistasPage() {
           <h2>Listado de deportistas</h2>
 
           <input
+            aria-label="Buscar deportista"
             style={campo}
             placeholder="Buscar deportista..."
             value={busqueda}
@@ -251,21 +336,33 @@ export default function DeportistasPage() {
               }}
             >
               <h3 style={{ color: "#ff8c28" }}>{d.nombre}</h3>
-              <p>Nivel: {d.nivel}</p>
-              <p>Correo: {d.email}</p>
-              <p>Teléfono: {d.telefono}</p>
+              <p>Nivel: {d.nivel || "Sin especificar"}</p>
+              <p>Correo: {d.email || "Sin especificar"}</p>
+              <p>Teléfono: {d.telefono || "Sin especificar"}</p>
 
-              <button
-                type="button"
-                onClick={() => eliminarDeportista(d.id)}
-                style={{
-                  ...boton,
-                  background: "#662222",
-                  color: "white",
-                }}
-              >
-                Eliminar
-              </button>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => editarDeportista(d)}
+                  style={boton}
+                  disabled={guardando || eliminandoId !== null}
+                >
+                  Editar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void eliminarDeportista(d.id)}
+                  disabled={guardando || eliminandoId !== null}
+                  style={{
+                    ...boton,
+                    background: "#662222",
+                    color: "white",
+                  }}
+                >
+                  {eliminandoId === d.id ? "Eliminando..." : "Eliminar"}
+                </button>
+              </div>
             </div>
           ))}
         </section>
