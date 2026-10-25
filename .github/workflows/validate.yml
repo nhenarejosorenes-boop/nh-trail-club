@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feature/dashboard-roles-navigation]
+    branches: [main, feature/dashboard-roles-navigation]
 jobs:
   build:
     runs-on: ubuntu-latest
