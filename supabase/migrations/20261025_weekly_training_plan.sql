@@ -26,11 +26,17 @@ create policy "admins_manage_training" on public.weekly_training_plan
     exists (select 1 from public.profiles p where p.id = (select auth.uid()) and p.role = 'admin')
   );
 drop policy if exists "athletes_mark_own_training" on public.weekly_training_plan;
+-- Restrict table writes to authenticated administrators via RLS.
+revoke all on public.weekly_training_plan from anon;
+grant select, insert, update, delete on public.weekly_training_plan to authenticated;
 -- Completion is performed by an RPC so athletes cannot change prescribed content.
 create or replace function public.mark_training_completed(p_id uuid, p_completed boolean)
 returns void language plpgsql security definer set search_path = ''
 as $$
 begin
+  if (select auth.uid()) is null then
+    raise exception 'Debes iniciar sesión';
+  end if;
   update public.weekly_training_plan
   set completed = p_completed
   where id = p_id and (
