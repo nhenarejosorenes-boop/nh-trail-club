@@ -22,6 +22,7 @@ export default function DashboardPage() {
  const [registered,setRegistered]=useState<string[]>([]);
  const [menu,setMenu]=useState(false);
  const [paymentAlert,setPaymentAlert]=useState<PaymentAlert|null>(null);
+ const [hasMembership,setHasMembership]=useState<boolean|null>(null);
  useEffect(()=>{let active=true;async function load(){
   try {
    const {data:auth,error:authError}=await supabase.auth.getUser();
@@ -56,6 +57,8 @@ export default function DashboardPage() {
      }
     }else setPaymentAlert(null);
    }
+   const {data:memberRequests,error:memberError}=await supabase.from("club_subscription_requests").select("id").eq("user_id",uid).in("status",["pending","approved"]).limit(1);
+   if(active&&!memberError)setHasMembership((memberRequests??[]).length>0);
    const failures=[plan.error,activities.error,registrations.error].filter(Boolean);
    if(failures.length)setError("Algunos datos no se pudieron cargar. Prueba a actualizar la página.");
   }catch{if(active)setError("No se pudo cargar el panel. Comprueba tu conexión e inténtalo de nuevo.");}
@@ -79,6 +82,7 @@ export default function DashboardPage() {
    </header>
    <div className={styles.inner}>
     {error&&<p className={styles.error} role="alert">{error}</p>}
+    {hasMembership===false&&<section role="status" style={{background:"#2a211b",border:"1px solid #ff922f",borderRadius:12,padding:"17px 20px",marginBottom:20}}><strong style={{color:"#ffad5c"}}>Suscripción obligatoria del club</strong><p>Para formar parte de NH Trail Club debes elegir una modalidad mensual: Básica 10 €, PLUS 60 € o PLUS Performance 100 €. Elige tu programa para solicitar el alta.</p><Link href="/suscripciones" style={{color:"#ffad5c",fontWeight:800}}>Elegir mi modalidad →</Link></section>}
     {paymentAlert&&paymentAlert.count>0&&<section role="status" style={{background:"#2a211b",border:"1px solid #f18b35",borderLeft:"5px solid #f18b35",borderRadius:12,padding:"17px 20px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",gap:14,flexWrap:"wrap"}}>
      <div><strong style={{color:"#ffae63",fontSize:18}}>◷ Avisos de cuotas PLUS ({paymentAlert.count})</strong><p style={{margin:"7px 0 0",color:"#e7d8ca"}}>{paymentAlert.overdue>0?paymentAlert.overdue+" vencida(s) · ":""}{paymentAlert.upcoming>0?paymentAlert.upcoming+" próxima(s) a vencer · ":""}{paymentAlert.amount.toLocaleString("es-ES",{style:"currency",currency:"EUR"})} en cuotas registradas con aviso</p></div>
      <Link href="/mis-cuotas" style={{background:"#ff922f",color:"#111",fontWeight:800,textDecoration:"none",padding:"11px 15px",borderRadius:9}}>Consultar mis cuotas →</Link>
