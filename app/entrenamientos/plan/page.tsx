@@ -101,7 +101,7 @@ export default function PlanSemanalPage() {
     const next = dateString(d); setWeek(next); setDate(next); setError("");
   }
   const weekEnd = new Date(week+"T12:00:00"); weekEnd.setDate(weekEnd.getDate()+6);
-  return <SubscriptionAccessGate><main style={{ minHeight:"100vh", background:"#111", color:"white", padding:"35px 20px", fontFamily:"Arial,sans-serif" }}>
+  return <SubscriptionAccessGate minPlan="plus"><main style={{ minHeight:"100vh", background:"#111", color:"white", padding:"35px 20px", fontFamily:"Arial,sans-serif" }}>
     <div style={{ maxWidth:900, margin:"0 auto" }}>
       <p style={{ color:"#f28c28", fontWeight:"bold" }}>NH TRAINING CONCEPT</p>
       <h1>Planificación semanal</h1>
