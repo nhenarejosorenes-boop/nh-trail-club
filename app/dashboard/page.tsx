@@ -46,7 +46,7 @@ export default function DashboardPage() {
  }void load();return()=>{active=false};},[]);
  async function logout(){const {error:e}=await supabase.auth.signOut();if(e)setError("No se pudo cerrar la sesión.");else window.location.replace("/login");}
  const completed=trainings.filter(s=>s.completed).length;
- const navigation=[{icon:"⌂",label:"Inicio",href:"/dashboard"},{icon:"◫",label:"Plan semanal",href:"/entrenamientos/plan"},{icon:"↗",label:"Entrenamientos",href:"/entrenamientos"},{icon:"△",label:"Salidas del club",href:"/salidas"},{icon:"▥",label:"Mi progreso",href:"/progreso"},{icon:"★",label:"PLUS / Performance",href:"/suscripciones"},...(role==="admin"?[{icon:"♙",label:"Deportistas",href:"/deportistas"},{icon:"▤",label:"Panel entrenador",href:"/entrenador/seguimiento"},{icon:"⚙",label:"Administración",href:"/admin"}]:[])];
+ const navigation=[{icon:"⌂",label:"Inicio",href:"/dashboard"},{icon:"◫",label:"Plan semanal",href:"/entrenamientos/plan"},{icon:"↗",label:"Entrenamientos",href:"/entrenamientos"},{icon:"△",label:"Salidas del club",href:"/salidas"},{icon:"▥",label:"Mi progreso",href:"/progreso"},{icon:"★",label:"PLUS / Performance",href:"/suscripciones"},...(role==="admin"?[{icon:"♙",label:"Deportistas",href:"/deportistas"},{icon:"▤",label:"Panel entrenador",href:"/entrenador/seguimiento"},{icon:"★",label:"Gestión PLUS",href:"/admin/suscripciones"},{icon:"⚙",label:"Administración",href:"/admin"}]:[])];
  return <main className={styles.shell}>
   <aside className={styles.sidebar}>
    <Link href="/dashboard" className={styles.brand}><span className={styles.brandMark}>NH<span>⌁</span></span><small>CLUB TRAIL RUNNING ALICANTE</small></Link>
