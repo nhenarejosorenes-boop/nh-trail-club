@@ -98,3 +98,23 @@ end;
 $$;
 revoke execute on function public.mark_training_completed(uuid, boolean) from public, anon;
 grant execute on function public.mark_training_completed(uuid, boolean) to authenticated;
+
+-- Prevent a member from submitting a forged initial payment state.
+drop policy if exists member_request_subscription on public.club_subscription_requests;
+create policy member_request_subscription on public.club_subscription_requests
+for insert to authenticated
+with check (
+  user_id = (select auth.uid())
+  and status = 'pending'
+  and reviewed_at is null
+  and start_date is null
+  and next_due_date is null
+  and payment_status = 'not_recorded'
+  and plan in ('basic','plus','plus_performance')
+);
+-- A zero-value entry must never activate a paid membership.
+alter table public.club_subscription_monthly_dues
+drop constraint if exists paid_dues_positive_amount;
+alter table public.club_subscription_monthly_dues
+add constraint paid_dues_positive_amount
+check (status <> 'paid' or amount_eur > 0);
