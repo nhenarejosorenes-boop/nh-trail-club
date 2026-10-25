@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "NH Trail Club",
+  title: "NH / Club Trail Running Alicante",
   description: "Entrenamiento, comunidad y trail running",
 };
 
