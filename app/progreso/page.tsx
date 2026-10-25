@@ -62,7 +62,7 @@ export default function ProgresoPage() {
     <main style={{ background: "#111", color: "white", minHeight: "100vh", padding: "40px 20px", fontFamily: "Arial, sans-serif" }}>
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
         <p style={{ color: "#f28c28", fontWeight: "bold" }}>NH TRAINING CONCEPT</p>
-        <h1>Mi progreso</h1>
+        <h1>Mi progreso</h1>\n        <Link href="/seguimiento-trail" style={{display:"inline-block",background:"#f28c28",color:"#111",padding:"12px 16px",borderRadius:8,fontWeight:700,textDecoration:"none",marginTop:12}}>Registrar salida de trail</Link>
         <p style={{ color: "#bbb" }}>Evolución de tus entrenamientos y actividades del club.</p>
         {cargando ? <p>Cargando...</p> : error ? <p role="alert" style={{ color: "#ff9999" }}>{error}</p> : (
           <>
