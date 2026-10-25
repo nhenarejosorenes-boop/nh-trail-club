@@ -264,9 +264,11 @@ export default function AdminPage() {
   async function eliminarActividad(actividad: Actividad) {
     if (procesando) return;
 
-    const confirmar = window.confirm(
-      `¿Eliminar "${actividad.title}"? Esta acción puede afectar a las inscripciones.`
-    );
+    
+const confirmar = window.confirm(
+  `¿Eliminar "${actividad.title}"? Esta acción puede afectar a las inscripciones.`
+);
+
 
     if (!confirmar) return;
 
