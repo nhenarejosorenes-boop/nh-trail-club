@@ -1,101 +1,87 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
+import styles from "./dashboard.module.css";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
-
-const commonSections = [
-  { title: "Mis entrenamientos", description: "Fuerza y trail running.", href: "/entrenamientos", icon: "🏋️" },
-  { title: "Salidas de montaña", description: "Consulta las salidas e inscríbete.", href: "/salidas", icon: "⛰️" },
-];
-const adminSections = [
-  { title: "Deportistas", description: "Gestiona los miembros del club.", href: "/deportistas", icon: "👥" },
-  { title: "Administración", description: "Gestiona actividades e inscripciones.", href: "/admin", icon: "⚙️" },
-];
-
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+type Training = { id:string; session_date:string; category:string; title:string; details:string; completed:boolean };
+type Outing = { id:string; title:string; starts_at:string; location:string|null; activity_type:string|null };
+const fmt = (date:string, options?:Intl.DateTimeFormatOptions) => new Date(date).toLocaleDateString("es-ES",options ?? {day:"numeric",month:"short"});
+const localDate = (d:Date) => [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
+function weekBounds() { const start=new Date();start.setHours(12,0,0,0);start.setDate(start.getDate()-((start.getDay()+6)%7));const end=new Date(start);end.setDate(end.getDate()+7);return [localDate(start),localDate(end)]; }
 export default function DashboardPage() {
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        const { data, error: authError } = await supabase.auth.getUser();
-        if (!active) return;
-        if (authError || !data.user) {
-          window.location.replace("/login");
-          return;
-        }
-        setEmail(data.user.email ?? "");
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("full_name,role")
-          .eq("id", data.user.id)
-          .single();
-        if (!active) return;
-        if (profileError) {
-          setError("No se pudo consultar el perfil. Inténtalo de nuevo.");
-        } else {
-          setName(profile?.full_name || "");
-          setRole(profile?.role || "");
-        }
-      } catch {
-        if (active) setError("No se pudo conectar con el servidor.");
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-    load();
-    return () => { active = false; };
-  }, []);
-
-  async function logout() {
-    await supabase.auth.signOut();
-    window.location.replace("/login");
-  }
-
-  const sections = role === "admin"
-    ? [...commonSections, ...adminSections]
-    : commonSections;
-
-  return (
-    <main style={{ minHeight: "100vh", background: "#111", color: "#fff", padding: "30px 20px", fontFamily: "Arial, sans-serif" }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, flexWrap: "wrap", marginBottom: 45 }}>
-          <div>
-            <p style={{ color: "#f28c28", fontWeight: "bold", letterSpacing: 2 }}>NH TRAINING CONCEPT</p>
-            <h1>NH TRAIL CLUB</h1>
-            <p style={{ color: "#aaa" }}>Entrena. Progresa. Disfruta la montaña.</p>
-          </div>
-          <button onClick={logout} style={{ background: "#f28c28", border: 0, borderRadius: 8, padding: "12px 20px", fontWeight: "bold", cursor: "pointer" }}>Cerrar sesión</button>
-        </header>
-        {loading ? <p>Cargando tu club...</p> : (
-          <>
-            <h2>Bienvenido{ name ? ", " + name : " a tu club" }</h2>
-            <p style={{ color: "#aaa", marginBottom: 30 }}>{email}</p>
-            {error && <p role="alert" style={{ color: "#ff9999" }}>{error}</p>}
-            <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 20 }}>
-              {sections.map(section => (
-                <Link key={section.href} href={section.href} style={{ background: "#1e1e1e", border: "1px solid #333", borderRadius: 14, padding: 28, color: "white", textDecoration: "none" }}>
-                  <div style={{ fontSize: 34 }}>{section.icon}</div>
-                  <h3 style={{ color: "#f28c28" }}>{section.title}</h3>
-                  <p style={{ color: "#bbb" }}>{section.description}</p>
-                </Link>
-              ))}
-            </section>
-            <p style={{ color: "#888", marginTop: 45, fontSize: 13 }}>NH TRAINING CONCEPT · NH TRAIL CLUB</p>
-          </>
-        )}
-      </div>
-    </main>
-  );
+ const [loading,setLoading]=useState(true);
+ const [error,setError]=useState("");
+ const [name,setName]=useState("");
+ const [email,setEmail]=useState("");
+ const [role,setRole]=useState("");
+ const [trainings,setTrainings]=useState<Training[]>([]);
+ const [outings,setOutings]=useState<Outing[]>([]);
+ const [registered,setRegistered]=useState<string[]>([]);
+ const [menu,setMenu]=useState(false);
+ useEffect(()=>{let active=true;async function load(){
+  try {
+   const {data:auth,error:authError}=await supabase.auth.getUser();
+   if(!active)return;
+   if(authError||!auth.user){window.location.replace("/login");return;}
+   const uid=auth.user.id;setEmail(auth.user.email??"");
+   const [profile,plan,activities,registrations]=await Promise.all([
+    supabase.from("profiles").select("full_name,role").eq("id",uid).single(),
+    supabase.from("weekly_training_plan").select("id,session_date,category,title,details,completed").eq("athlete_id",uid).gte("session_date",weekBounds()[0]).lt("session_date",weekBounds()[1]).order("session_date"),
+    supabase.from("club_activities").select("id,title,starts_at,location,activity_type").gte("starts_at",new Date().toISOString()).order("starts_at").limit(3),
+    supabase.from("activity_registrations").select("activity_id").eq("user_id",uid)
+   ]);
+   if(!active)return;
+   if(profile.error)throw profile.error;
+   setName(profile.data?.full_name||auth.user.email?.split("@")[0]||"deportista");
+   setRole(profile.data?.role||"athlete");
+   setTrainings((plan.data??[]) as Training[]);
+   setOutings((activities.data??[]) as Outing[]);
+   setRegistered((registrations.data??[]).map(r=>r.activity_id));
+   const failures=[plan.error,activities.error,registrations.error].filter(Boolean);
+   if(failures.length)setError("Algunos datos no se pudieron cargar. Prueba a actualizar la página.");
+  }catch{if(active)setError("No se pudo cargar el panel. Comprueba tu conexión e inténtalo de nuevo.");}
+  finally{if(active)setLoading(false);}
+ }void load();return()=>{active=false};},[]);
+ async function logout(){const {error:e}=await supabase.auth.signOut();if(e)setError("No se pudo cerrar la sesión.");else window.location.replace("/login");}
+ const completed=trainings.filter(s=>s.completed).length;
+ const navigation=[{icon:"⌂",label:"Inicio",href:"/dashboard"},{icon:"◫",label:"Plan semanal",href:"/entrenamientos/plan"},{icon:"↗",label:"Entrenamientos",href:"/entrenamientos"},{icon:"△",label:"Salidas del club",href:"/salidas"},{icon:"▥",label:"Mi progreso",href:"/progreso"},...(role==="admin"?[{icon:"♙",label:"Deportistas",href:"/deportistas"},{icon:"⚙",label:"Administración",href:"/admin"}]:[])];
+ return <main className={styles.shell}>
+  <aside className={styles.sidebar}>
+   <Link href="/dashboard" className={styles.brand}><span className={styles.brandMark}>NH<span>⌁</span></span><small>TRAIL CLUB</small></Link>
+   <nav className={styles.nav} aria-label="Navegación principal">{navigation.map((n,i)=><Link key={n.href} href={n.href} className={i===0?styles.active:""}><span aria-hidden="true">{n.icon}</span>{n.label}</Link>)}</nav>
+   <div className={styles.sideBottom}><span className={styles.identity}>{email}</span><button onClick={logout} className={styles.logout}>⇥ &nbsp; Cerrar sesión</button></div>
+  </aside>
+  <section className={styles.content}>
+   <header className={styles.hero}>
+    <div className={styles.heroTop}><span className={styles.eyebrow}>NH TRAINING CONCEPT · NH TRAIL CLUB</span><button className={styles.mobileMenu} onClick={()=>setMenu(!menu)} aria-expanded={menu}>☰ Menú</button></div>
+    {menu&&<div className={styles.mobileLinks}>{navigation.map(n=><Link key={n.href} href={n.href}>{n.label}</Link>)}<button onClick={logout}>Cerrar sesión</button></div>}
+    <div className={styles.heroBody}><p>Bienvenido/a,</p><h1>{loading?"Cargando...":name}</h1><span>Disciplina hoy, montañas mañana.</span></div>
+    <time className={styles.today}>{new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</time>
+   </header>
+   <div className={styles.inner}>
+    {error&&<p className={styles.error} role="alert">{error}</p>}
+    <div className={styles.stats}>
+     <div className={styles.stat}><span className={styles.statIcon}>♢</span><div><small>Sesiones esta semana</small><strong>{loading?"—":trainings.length}</strong><span>Planificadas</span></div></div>
+     <div className={styles.stat}><span className={styles.statIcon}>✓</span><div><small>Sesiones completadas</small><strong>{loading?"—":completed+" / "+trainings.length}</strong><span>{trainings.length?Math.round(completed/trainings.length*100)+"% del plan":"Sin sesiones aún"}</span></div></div>
+     <div className={styles.stat}><span className={styles.statIcon}>△</span><div><small>Próximas salidas</small><strong>{loading?"—":outings.length}</strong><span>Disponibles en el club</span></div></div>
+     <div className={styles.stat}><span className={styles.statIcon}>↗</span><div><small>Mis inscripciones</small><strong>{loading?"—":outings.filter(o=>registered.includes(o.id)).length}</strong><span>Entre las próximas salidas</span></div></div>
+    </div>
+    <div className={styles.columns}>
+     <section className={styles.panel}><div className={styles.panelHeading}><h2><span>▣</span> Plan semanal</h2><Link href="/entrenamientos/plan">Ver semana completa →</Link></div>
+      {loading?<p className={styles.muted}>Cargando entrenamientos...</p>:trainings.length?trainings.map(s=><div key={s.id} className={styles.training}><div className={styles.dateTile}><small>{fmt(s.session_date+"T12:00:00",{weekday:"short"}).toUpperCase()}</small><strong>{s.session_date.slice(-2)}</strong></div><div className={styles.trainingText}><strong>{s.title}</strong><span>{s.category.toUpperCase()}{s.details?" · "+s.details:""}</span></div><span className={s.completed?styles.done:styles.pending} aria-label={s.completed?"Completada":"Pendiente"}>{s.completed?"✓":"○"}</span></div>):<div className={styles.empty}>Todavía no tienes sesiones programadas esta semana.<p><Link href="/entrenamientos/plan">Consultar planificación →</Link></p></div>}
+     </section>
+     <section className={styles.panel}><div className={styles.panelHeading}><h2><span>△</span> Próximas salidas</h2><Link href="/salidas">Ver todas →</Link></div>
+      {loading?<p className={styles.muted}>Cargando salidas...</p>:outings.length?outings.map(o=><div key={o.id} className={styles.outing}><div className={styles.outingIcon}>⛰</div><div className={styles.outingText}><strong>{o.title}</strong><span>{fmt(o.starts_at,{day:"numeric",month:"long",year:"numeric"})}</span><small>{o.location||"Lugar por confirmar"}</small></div><Link href="/salidas" className={styles.outingAction}>{registered.includes(o.id)?"Inscrito ✓":"Ver detalles"}</Link></div>):<div className={styles.empty}>No hay salidas próximas publicadas.<p><Link href="/salidas">Consultar salidas →</Link></p></div>}
+     </section>
+    </div>
+    <div className={styles.bottomColumns}>
+     <section className={styles.panel}><div className={styles.panelHeading}><h2><span>▥</span> Mi progreso</h2><Link href="/progreso">Ver progreso →</Link></div><div className={styles.progress}><div><small>Sesiones completadas esta semana</small><strong>{completed} <span>de {trainings.length}</span></strong><div className={styles.track}><div style={{width:(trainings.length?completed/trainings.length*100:0)+"%"}}/></div></div><div><small>Sesiones pendientes</small><strong>{trainings.length-completed}</strong><p>Datos de tu planificación real</p></div></div></section>
+     <section className={styles.panel}><div className={styles.panelHeading}><h2>Accesos rápidos</h2></div><div className={styles.quick}>{navigation.filter(n=>n.href!=="/dashboard").slice(0,6).map(n=><Link href={n.href} key={n.href}><span>{n.icon}</span>{n.label}</Link>)}</div></section>
+    </div>
+    <footer>NH TRAINING CONCEPT · Tu meta, mi desafío</footer>
+   </div>
+  </section>
+ </main>;
 }
