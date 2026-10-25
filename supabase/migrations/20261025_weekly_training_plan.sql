@@ -33,7 +33,10 @@ as $$
 begin
   update public.weekly_training_plan
   set completed = p_completed
-  where id = p_id and athlete_id = (select auth.uid());
+  where id = p_id and (
+    athlete_id = (select auth.uid())
+    or exists (select 1 from public.profiles p where p.id = (select auth.uid()) and p.role = 'admin')
+  );
   if not found then
     raise exception 'Sesión no encontrada o sin permisos';
   end if;
