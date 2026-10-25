@@ -1,3 +1,5 @@
+```
+
 
 "use client";
 
@@ -19,6 +21,9 @@ type Actividad = {
   location: string | null;
   max_participants: number;
 };
+
+type Inscripcion = { activity_id: string; user_id: string; created_at: string };
+type Participante = { user_id: string; nombre: string; email: string };
 
 type Formulario = {
   title: string;
@@ -48,6 +53,11 @@ export default function AdminPage() {
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
+  const [inscripciones, setInscripciones] = useState<Inscripcion[]>([]);
+  const [inscritosAbiertos, setInscritosAbiertos] = useState<string | null>(null);
+  const [participantes, setParticipantes] = useState<Record<string, Participante[]>>({});
+  const [cargandoInscritos, setCargandoInscritos] = useState(false);
+  const [errorInscritos, setErrorInscritos] = useState("");
 
   async function verificarAdmin() {
     const { data: authData, error: authError } =
@@ -73,6 +83,7 @@ export default function AdminPage() {
 
     setAutorizado(true);
     await cargarActividades();
+    await cargarInscripciones();
     setCargando(false);
   }
 
@@ -87,6 +98,63 @@ export default function AdminPage() {
     } else {
       setActividades(data || []);
     }
+  }
+
+  async function cargarInscripciones() {
+    const { data, error: consultaError } = await supabase
+      .from("activity_registrations")
+      .select("activity_id,user_id,created_at");
+    if (consultaError) {
+      setErrorInscritos("No se pueden consultar las inscripciones: " + consultaError.message);
+    } else {
+      setInscripciones(data || []);
+      setErrorInscritos("");
+    }
+  }
+
+  async function verInscritos(id: string) {
+    if (inscritosAbiertos === id) {
+      setInscritosAbiertos(null);
+      return;
+    }
+    setInscritosAbiertos(id);
+    setCargandoInscritos(true);
+    setErrorInscritos("");
+    const { data: registros, error: regError } = await supabase
+      .from("activity_registrations")
+      .select("activity_id,user_id,created_at")
+      .eq("activity_id", id);
+    if (regError) {
+      setErrorInscritos("No se pueden consultar los inscritos: " + regError.message);
+      setCargandoInscritos(false);
+      return;
+    }
+    const lista = registros || [];
+    setInscripciones((prev) => [...prev.filter((r) => r.activity_id !== id), ...lista]);
+    if (!lista.length) {
+      setParticipantes((prev) => ({ ...prev, [id]: [] }));
+      setCargandoInscritos(false);
+      return;
+    }
+    const ids = lista.map((r) => r.user_id);
+    const [perfiles, deportistas] = await Promise.all([
+      supabase.from("profiles").select("id,full_name,email").in("id", ids),
+      supabase.from("deportistas").select("user_id,nombre,email").in("user_id", ids),
+    ]);
+    if (perfiles.error && deportistas.error) {
+      setErrorInscritos("No se pudieron consultar los nombres: " + perfiles.error.message);
+    }
+    const resultado: Participante[] = ids.map((user_id) => {
+      const d = deportistas.data?.find((x) => x.user_id === user_id);
+      const p = perfiles.data?.find((x) => x.id === user_id);
+      return {
+        user_id,
+        nombre: d?.nombre || p?.full_name || "Nombre no disponible",
+        email: d?.email || p?.email || "Correo no disponible",
+      };
+    });
+    setParticipantes((prev) => ({ ...prev, [id]: resultado }));
+    setCargandoInscritos(false);
   }
 
   useEffect(() => {
@@ -187,6 +255,7 @@ export default function AdminPage() {
       );
       cancelarEdicion();
       await cargarActividades();
+      await cargarInscripciones();
     }
 
     setProcesando(false);
@@ -218,6 +287,7 @@ export default function AdminPage() {
     } else {
       setMensaje("Actividad eliminada correctamente.");
       await cargarActividades();
+      await cargarInscripciones();
     }
 
     setProcesando(false);
@@ -430,6 +500,7 @@ export default function AdminPage() {
               Actividades registradas
             </h2>
 
+            {errorInscritos && !inscritosAbiertos && <p role="alert" style={{color:"#ff8888"}}>{errorInscritos}</p>}
             {actividades.length === 0 && (
               <p>No hay actividades registradas.</p>
             )}
@@ -468,6 +539,21 @@ export default function AdminPage() {
                   Plazas máximas: {actividad.max_participants}
                 </p>
 
+                <p style={{ color: "#8ee6a0" }}>
+                  Inscritos: {inscripciones.filter((r) => r.activity_id === actividad.id).length}
+                  {" / "}{actividad.max_participants} · Plazas disponibles: {Math.max(0, actividad.max_participants - inscripciones.filter((r) => r.activity_id === actividad.id).length)}
+                </p>
+                <button type="button" style={boton} onClick={() => verInscritos(actividad.id)}>
+                  {inscritosAbiertos === actividad.id ? "Ocultar inscritos" : "Ver inscritos"}
+                </button>
+                {inscritosAbiertos === actividad.id && (
+                  <section style={{ background: "#292929", padding: 16, marginTop: 12, borderRadius: 8 }}>
+                    <h4>Participantes inscritos</h4>
+                    {cargandoInscritos ? <p>Cargando...</p> : errorInscritos ? <p role="alert" style={{color:"#ff8888"}}>{errorInscritos}</p> :
+                      (participantes[actividad.id] || []).length === 0 ? <p>No hay inscritos.</p> :
+                      <ul>{(participantes[actividad.id] || []).map((p) => <li key={p.user_id}>{p.nombre} — {p.email}</li>)}</ul>}
+                  </section>
+                )}
                 <div
                   style={{
                     display: "flex",
@@ -511,3 +597,4 @@ export default function AdminPage() {
     </main>
   );
 }
+```
