@@ -49,13 +49,13 @@ export default function DashboardPage() {
  const navigation=[{icon:"⌂",label:"Inicio",href:"/dashboard"},{icon:"◫",label:"Plan semanal",href:"/entrenamientos/plan"},{icon:"↗",label:"Entrenamientos",href:"/entrenamientos"},{icon:"△",label:"Salidas del club",href:"/salidas"},{icon:"▥",label:"Mi progreso",href:"/progreso"},...(role==="admin"?[{icon:"♙",label:"Deportistas",href:"/deportistas"},{icon:"⚙",label:"Administración",href:"/admin"}]:[])];
  return <main className={styles.shell}>
   <aside className={styles.sidebar}>
-   <Link href="/dashboard" className={styles.brand}><span className={styles.brandMark}>NH<span>⌁</span></span><small>TRAIL CLUB</small></Link>
+   <Link href="/dashboard" className={styles.brand}><span className={styles.brandMark}>NH<span>⌁</span></span><small>CLUB TRAIL RUNNING ALICANTE</small></Link>
    <nav className={styles.nav} aria-label="Navegación principal">{navigation.map((n,i)=><Link key={n.href} href={n.href} className={i===0?styles.active:""}><span aria-hidden="true">{n.icon}</span>{n.label}</Link>)}</nav>
    <div className={styles.sideBottom}><span className={styles.identity}>{email}</span><button onClick={logout} className={styles.logout}>⇥ &nbsp; Cerrar sesión</button></div>
   </aside>
   <section className={styles.content}>
    <header className={styles.hero}>
-    <div className={styles.heroTop}><span className={styles.eyebrow}>NH TRAINING CONCEPT · NH TRAIL CLUB</span><button className={styles.mobileMenu} onClick={()=>setMenu(!menu)} aria-expanded={menu}>☰ Menú</button></div>
+    <div className={styles.heroTop}><span className={styles.eyebrow}>NH / CLUB TRAIL RUNNING ALICANTE</span><button className={styles.mobileMenu} onClick={()=>setMenu(!menu)} aria-expanded={menu}>☰ Menú</button></div>
     {menu&&<div className={styles.mobileLinks}>{navigation.map(n=><Link key={n.href} href={n.href}>{n.label}</Link>)}<button onClick={logout}>Cerrar sesión</button></div>}
     <div className={styles.heroBody}><p>Bienvenido/a,</p><h1>{loading?"Cargando...":name}</h1><span>Disciplina hoy, montañas mañana.</span></div>
     <time className={styles.today}>{new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</time>
