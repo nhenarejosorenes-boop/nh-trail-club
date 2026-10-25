@@ -31,6 +31,8 @@ export default function DeportistasPage() {
   const [guardando, setGuardando] = useState(false);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState("");
+  const [autorizado, setAutorizado] = useState(false);
+  const [verificando, setVerificando] = useState(true);
 
   async function cargarDeportistas() {
     setCargando(true);
@@ -50,7 +52,32 @@ export default function DeportistasPage() {
   }
 
   useEffect(() => {
-    void cargarDeportistas();
+    let activo = true;
+    async function comprobarAcceso() {
+      try {
+        const { data: auth, error: authError } = await supabase.auth.getUser();
+        if (!activo) return;
+        if (authError || !auth.user) {
+          setMensaje("Debes iniciar sesión para acceder.");
+          return;
+        }
+        const { data: perfil, error: perfilError } = await supabase
+          .from("profiles").select("role").eq("id", auth.user.id).single();
+        if (!activo) return;
+        if (perfilError || perfil?.role !== "admin") {
+          setMensaje("No tienes permisos de administrador.");
+          return;
+        }
+        setAutorizado(true);
+        await cargarDeportistas();
+      } catch {
+        if (activo) setMensaje("No se pudo comprobar el acceso.");
+      } finally {
+        if (activo) setVerificando(false);
+      }
+    }
+    void comprobarAcceso();
+    return () => { activo = false; };
   }, []);
 
   function limpiarFormulario() {
@@ -189,6 +216,9 @@ export default function DeportistasPage() {
     borderRadius: "12px",
     marginBottom: "22px",
   };
+
+  if (verificando) return <main style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}>Comprobando permisos...</main>;
+  if (!autorizado) return <main style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}><h1>Acceso restringido</h1><p>{mensaje}</p><a href="/dashboard" style={{ color: "#ff8c28" }}>Volver al panel</a></main>;
 
   return (
     <main
