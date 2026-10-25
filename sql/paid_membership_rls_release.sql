@@ -47,6 +47,33 @@ with check (
   user_id = (select auth.uid())
   and (select public.nh_member_paid_for_current_month())
 );
+
+-- PLUS and PLUS Performance only: individualized training data.
+-- RESTRICTIVE SELECT is AND-ed with the existing owner/admin SELECT policies.
+-- This protects direct REST queries, not only the Next.js page.
+drop policy if exists nh_plus_training_read on public.weekly_training_plan;
+create policy nh_plus_training_read on public.weekly_training_plan
+as restrictive for select to authenticated
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid()) and p.role = 'admin'
+  )
+  or exists (
+    select 1
+    from public.club_subscription_requests s
+    join public.club_subscription_monthly_dues d
+      on d.subscription_id = s.id
+    where s.user_id = (select auth.uid())
+      and s.status = 'approved'
+      and s.plan in ('plus', 'plus_performance')
+      and d.status = 'paid'
+      and d.period_month = date_trunc('month', current_date)::date
+  )
+);
+-- No DELETE/UPDATE/INSERT privileges for athletes are added here.
+-- The mark_training_completed RPC is also restricted to PLUS below.
+
 -- Subscription requests and own dues stay readable while unpaid.
 -- Review other sports-data tables before enabling paid access in production.
 
@@ -83,9 +110,17 @@ begin
   end if;
   if not (
     exists(select 1 from public.profiles p where p.id = (select auth.uid()) and p.role = 'admin')
-    or public.nh_member_paid_for_current_month()
+    or exists (
+      select 1 from public.club_subscription_requests s
+      join public.club_subscription_monthly_dues d on d.subscription_id = s.id
+      where s.user_id = (select auth.uid())
+        and s.status = 'approved'
+        and s.plan in ('plus', 'plus_performance')
+        and d.status = 'paid'
+        and d.period_month = date_trunc('month', current_date)::date
+    )
   ) then
-    raise exception 'Cuota del mes sin verificar';
+    raise exception 'Requiere PLUS activo y cuota verificada';
   end if;
   update public.weekly_training_plan
   set completed = p_completed
