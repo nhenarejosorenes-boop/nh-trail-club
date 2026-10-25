@@ -23,6 +23,7 @@ export default function DashboardPage() {
  const [menu,setMenu]=useState(false);
  const [paymentAlert,setPaymentAlert]=useState<PaymentAlert|null>(null);
  const [hasMembership,setHasMembership]=useState<boolean|null>(null);
+ const [access,setAccess]=useState<"checking"|"admin"|"active"|"pending"|"unpaid"|"none"|"error">("checking");
  useEffect(()=>{let active=true;async function load(){
   try {
    const {data:auth,error:authError}=await supabase.auth.getUser();
@@ -59,6 +60,21 @@ export default function DashboardPage() {
    }
    const {data:memberRequests,error:memberError}=await supabase.from("club_subscription_requests").select("id").eq("user_id",uid).in("status",["pending","approved"]).limit(1);
    if(active&&!memberError)setHasMembership((memberRequests??[]).length>0);
+   // Access is based on an approved membership AND a manually verified payment for the current month.
+   // This UI guard is not a substitute for server-side RLS authorization on protected data.
+   if(profile.data?.role==="admin"){setAccess("admin");}
+   else{
+    const {data:membership,error:me}=await supabase.from("club_subscription_requests").select("id,status").eq("user_id",uid).in("status",["approved","pending"]).order("created_at",{ascending:false});
+    if(me){setAccess("error");}
+    else{
+     const approved=(membership??[]).find(m=>m.status==="approved");
+     if(!approved)setAccess((membership??[]).some(m=>m.status==="pending")?"pending":"none");
+     else{
+      const {data:payment,error:payError}=await supabase.from("club_subscription_monthly_dues").select("id").eq("subscription_id",approved.id).eq("period_month",localDate(new Date()).slice(0,7)+"-01").eq("status","paid").limit(1);
+      setAccess(payError?"error":(payment??[]).length>0?"active":"unpaid");
+     }
+    }
+   }
    const failures=[plan.error,activities.error,registrations.error].filter(Boolean);
    if(failures.length)setError("Algunos datos no se pudieron cargar. Prueba a actualizar la página.");
   }catch{if(active)setError("No se pudo cargar el panel. Comprueba tu conexión e inténtalo de nuevo.");}
@@ -66,6 +82,12 @@ export default function DashboardPage() {
  }void load();return()=>{active=false};},[]);
  async function logout(){const {error:e}=await supabase.auth.signOut();if(e)setError("No se pudo cerrar la sesión.");else window.location.replace("/login");}
  const completed=trainings.filter(s=>s.completed).length;
+ if(!loading&&access!=="active"&&access!=="admin"){
+  const heading=access==="pending"?"Solicitud pendiente de aprobación":access==="unpaid"?"Cuota mensual pendiente de verificación":access==="none"?"Selecciona tu suscripción obligatoria":"No se pudo verificar tu acceso";
+  const body=access==="pending"?"El club debe revisar tu solicitud antes de activar el acceso.":access==="unpaid"?"Para acceder al panel deportivo, el club debe confirmar el pago de la cuota correspondiente al mes actual. Si ya has abonado la cuota, contacta con administración.":access==="none"?"Elige Básica (10 €), PLUS (60 €) o PLUS Performance (100 €) para solicitar el alta.":"Comprueba tu conexión e inténtalo de nuevo. No se ha modificado tu suscripción.";
+  return <main style={{minHeight:"100vh",background:"#101113",color:"#fff",padding:"64px 20px",fontFamily:"Arial,sans-serif"}}><section style={{maxWidth:620,margin:"auto",background:"#222427",padding:32,borderRadius:16,border:"1px solid #ff922f"}}><p style={{color:"#ff922f",fontWeight:800}}>NH / CLUB TRAIL RUNNING ALICANTE</p><h1>{heading}</h1><p style={{lineHeight:1.7,color:"#ddd"}}>{body}</p><div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:22}}><Link href="/suscripciones" style={{background:"#ff922f",color:"#111",padding:13,borderRadius:9,fontWeight:800,textDecoration:"none"}}>Mis modalidades</Link><Link href="/mis-cuotas" style={{color:"#ff922f",padding:13}}>Mis cuotas y avisos</Link><button onClick={()=>window.location.reload()} style={{padding:13,background:"#333",border:"1px solid #666",color:"#fff",borderRadius:9}}>Comprobar de nuevo</button></div></section></main>;
+ }
+
  const navigation=[{icon:"⌂",label:"Inicio",href:"/dashboard"},{icon:"◫",label:"Plan semanal",href:"/entrenamientos/plan"},{icon:"↗",label:"Entrenamientos",href:"/entrenamientos"},{icon:"△",label:"Salidas del club",href:"/salidas"},{icon:"▥",label:"Mi progreso",href:"/progreso"},{icon:"★",label:"PLUS / Performance",href:"/suscripciones"},{icon:"◷",label:"Mis cuotas y avisos",href:"/mis-cuotas"},...(role==="admin"?[{icon:"♙",label:"Deportistas",href:"/deportistas"},{icon:"▤",label:"Panel entrenador",href:"/entrenador/seguimiento"},{icon:"★",label:"Gestión PLUS",href:"/admin/suscripciones"},{icon:"⚙",label:"Administración",href:"/admin"}]:[])];
  return <main className={styles.shell}>
   <aside className={styles.sidebar}>
