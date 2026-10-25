@@ -25,7 +25,7 @@ export default function EntrenamientosPage() {
       titulo: "Mi progreso",
       descripcion: "Consulta tu evolución y seguimiento deportivo.",
       icono: "📈",
-      href: "/dashboard",
+      href: "/progreso",
     },
   ];
 
