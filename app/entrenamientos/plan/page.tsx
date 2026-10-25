@@ -64,8 +64,7 @@ export default function PlanSemanalPage() {
       if (active) { setSessions((data ?? []) as Session[]); setError(queryError?.message ?? ""); setLoading(false); }
     }
     void load();
-    return (
- <SubscriptionAccessGate>) => { active = false; };
+    return () => { active = false; };
   }, [selected,week]);
 
   async function refresh() {
