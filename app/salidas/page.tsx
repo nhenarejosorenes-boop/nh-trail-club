@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import SubscriptionAccessGate from "../components/SubscriptionAccessGate";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -322,6 +323,7 @@ export default function SalidasPage() {
               : 0;
 
           return (
+    <SubscriptionAccessGate>
             <div
               key={actividad.id}
               style={{
@@ -499,5 +501,6 @@ export default function SalidasPage() {
         </div>
       </div>
     </main>
+    </SubscriptionAccessGate>
   );
 }
