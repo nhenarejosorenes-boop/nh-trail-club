@@ -3,6 +3,7 @@ import Link from "next/link";
 
 export default function EntrenamientosPage() {
   const entrenamientos = [
+    { titulo: "Mi planificación semanal", descripcion: "Consulta y registra las sesiones programadas.", icono: "📅", href: "/entrenamientos/plan" },
     {
       titulo: "Entrenamiento de fuerza",
       descripcion: "Consulta tus sesiones de fuerza y preparación física.",
