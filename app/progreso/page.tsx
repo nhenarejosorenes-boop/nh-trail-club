@@ -71,7 +71,7 @@ export default function ProgresoPage() {
   const pasadas = actividades.filter(a => new Date(a.starts_at).getTime() < ahora).length;
 
   return (
-    <SubscriptionAccessGate>
+    <SubscriptionAccessGate minPlan="plus">
     <main style={{ background: "#111", color: "white", minHeight: "100vh", padding: "40px 20px", fontFamily: "Arial, sans-serif" }}>
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
         <p style={{ color: "#f28c28", fontWeight: "bold" }}>NH TRAINING CONCEPT</p>
