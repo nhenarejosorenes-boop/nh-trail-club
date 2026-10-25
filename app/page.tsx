@@ -57,7 +57,7 @@ export default function Home() {
           </p>
 
           <Link
-            href="/entrenamientos"
+            href="/dashboard"
             style={{
               display: "inline-block",
               marginTop: "15px",
@@ -69,7 +69,7 @@ export default function Home() {
               fontWeight: "bold",
             }}
           >
-            Ver entrenamientos
+            Acceder a mi panel
           </Link>
         </div>
       </div>
