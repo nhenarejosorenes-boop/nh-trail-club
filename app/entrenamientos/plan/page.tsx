@@ -74,6 +74,8 @@ export default function PlanSemanalPage() {
   }
   async function add(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); if (!admin || !selected || busy) return;
+    const start = new Date(week+"T12:00:00"); const end = new Date(start); end.setDate(end.getDate()+7);
+    if (date < dateString(start) || date >= dateString(end)) { setError("Selecciona una fecha dentro de la semana visible."); return; }
     setBusy(true); setError("");
     const { error: err } = await supabase.from("weekly_training_plan").insert({ athlete_id:selected, session_date:date, category, title:title.trim(), details:details.trim() });
     if (err) setError(err.message); else { setTitle(""); setDetails(""); await refresh(); }
@@ -94,7 +96,8 @@ export default function PlanSemanalPage() {
     setBusy(false);
   }
   function moveWeek(days: number) {
-    const d = new Date(week+"T12:00:00"); d.setDate(d.getDate()+days); setWeek(dateString(d));
+    const d = new Date(week+"T12:00:00"); d.setDate(d.getDate()+days);
+    const next = dateString(d); setWeek(next); setDate(next); setError("");
   }
   const weekEnd = new Date(week+"T12:00:00"); weekEnd.setDate(weekEnd.getDate()+6);
   return <main style={{ minHeight:"100vh", background:"#111", color:"white", padding:"35px 20px", fontFamily:"Arial,sans-serif" }}>
@@ -126,7 +129,7 @@ export default function PlanSemanalPage() {
       {admin && <section style={{ ...card, marginTop:30 }}>
         <h2>Programar sesión</h2>
         <form onSubmit={add}>
-          <label>Fecha<input style={input} type="date" value={date} onChange={e=>setDate(e.target.value)} required /></label>
+          <label>Fecha<input style={input} type="date" value={date} min={week} max={dateString(weekEnd)} onChange={e=>setDate(e.target.value)} required /></label>
           <label>Tipo<select style={input} value={category} onChange={e=>setCategory(e.target.value)}>
             <option value="trail">Trail</option><option value="fuerza">Fuerza</option><option value="movilidad">Movilidad</option><option value="descanso">Descanso</option>
           </select></label>
