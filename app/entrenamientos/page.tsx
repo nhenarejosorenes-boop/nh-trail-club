@@ -1,5 +1,7 @@
+"use client";
 
 import Link from "next/link";
+import SubscriptionAccessGate from "../components/SubscriptionAccessGate";
 
 export default function EntrenamientosPage() {
   const entrenamientos = [
@@ -31,6 +33,7 @@ export default function EntrenamientosPage() {
   ];
 
   return (
+    <SubscriptionAccessGate>
     <main
       style={{
         minHeight: "100vh",
@@ -104,5 +107,6 @@ export default function EntrenamientosPage() {
         </Link>
       </div>
     </main>
+    </SubscriptionAccessGate>
   );
 }
