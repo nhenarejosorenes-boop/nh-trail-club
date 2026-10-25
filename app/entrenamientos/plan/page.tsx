@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import SubscriptionAccessGate from "../../components/SubscriptionAccessGate";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
@@ -63,7 +64,8 @@ export default function PlanSemanalPage() {
       if (active) { setSessions((data ?? []) as Session[]); setError(queryError?.message ?? ""); setLoading(false); }
     }
     void load();
-    return () => { active = false; };
+    return (
+ <SubscriptionAccessGate>) => { active = false; };
   }, [selected,week]);
 
   async function refresh() {
