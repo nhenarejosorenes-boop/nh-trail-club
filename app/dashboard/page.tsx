@@ -6,6 +6,7 @@ import styles from "./dashboard.module.css";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
 type Training = { id:string; session_date:string; category:string; title:string; details:string; completed:boolean };
+type PaymentAlert = {count:number;overdue:number;upcoming:number;amount:number};
 type Outing = { id:string; title:string; starts_at:string; location:string|null; activity_type:string|null };
 const fmt = (date:string, options?:Intl.DateTimeFormatOptions) => new Date(date).toLocaleDateString("es-ES",options ?? {day:"numeric",month:"short"});
 const localDate = (d:Date) => [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
@@ -20,6 +21,7 @@ export default function DashboardPage() {
  const [outings,setOutings]=useState<Outing[]>([]);
  const [registered,setRegistered]=useState<string[]>([]);
  const [menu,setMenu]=useState(false);
+ const [paymentAlert,setPaymentAlert]=useState<PaymentAlert|null>(null);
  useEffect(()=>{let active=true;async function load(){
   try {
    const {data:auth,error:authError}=await supabase.auth.getUser();
@@ -39,6 +41,21 @@ export default function DashboardPage() {
    setTrainings((plan.data??[]) as Training[]);
    setOutings((activities.data??[]) as Outing[]);
    setRegistered((registrations.data??[]).map(r=>r.activity_id));
+   // Only the logged-in athlete's subscriptions and monthly dues are visible under RLS.
+   const {data:subscriptions,error:subError}=await supabase.from("club_subscription_requests").select("id").eq("user_id",uid).eq("status","approved");
+   if(active&&!subError){
+    const ids=(subscriptions??[]).map(s=>s.id);
+    if(ids.length){
+     const {data:dues,error:dueError}=await supabase.from("club_subscription_monthly_dues").select("subscription_id,due_date,amount_eur,status").in("subscription_id",ids).in("status",["pending","overdue"]);
+     if(active&&!dueError){
+      const now=localDate(new Date());
+      const upcoming=(dues??[]).filter(d=>{const days=Math.round((Date.parse(d.due_date+"T12:00:00Z")-Date.parse(now+"T12:00:00Z"))/86400000);return days>=0&&days<=7});
+      const overdue=(dues??[]).filter(d=>d.status==="overdue"||d.due_date<now);
+      const seen=new Map([...overdue,...upcoming].map(d=>[d.subscription_id+"-"+d.due_date,d]));
+      setPaymentAlert({count:seen.size,overdue:overdue.length,upcoming:upcoming.filter(d=>!overdue.includes(d)).length,amount:[...seen.values()].reduce((sum,d)=>sum+Number(d.amount_eur),0)});
+     }
+    }else setPaymentAlert(null);
+   }
    const failures=[plan.error,activities.error,registrations.error].filter(Boolean);
    if(failures.length)setError("Algunos datos no se pudieron cargar. Prueba a actualizar la página.");
   }catch{if(active)setError("No se pudo cargar el panel. Comprueba tu conexión e inténtalo de nuevo.");}
@@ -62,6 +79,10 @@ export default function DashboardPage() {
    </header>
    <div className={styles.inner}>
     {error&&<p className={styles.error} role="alert">{error}</p>}
+    {paymentAlert&&paymentAlert.count>0&&<section role="status" style={{background:"#2a211b",border:"1px solid #f18b35",borderLeft:"5px solid #f18b35",borderRadius:12,padding:"17px 20px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",gap:14,flexWrap:"wrap"}}>
+     <div><strong style={{color:"#ffae63",fontSize:18}}>◷ Avisos de cuotas PLUS ({paymentAlert.count})</strong><p style={{margin:"7px 0 0",color:"#e7d8ca"}}>{paymentAlert.overdue>0?paymentAlert.overdue+" vencida(s) · ":""}{paymentAlert.upcoming>0?paymentAlert.upcoming+" próxima(s) a vencer · ":""}{paymentAlert.amount.toLocaleString("es-ES",{style:"currency",currency:"EUR"})} en cuotas registradas con aviso</p></div>
+     <Link href="/mis-cuotas" style={{background:"#ff922f",color:"#111",fontWeight:800,textDecoration:"none",padding:"11px 15px",borderRadius:9}}>Consultar mis cuotas →</Link>
+    </section>}
     <div className={styles.stats}>
      <div className={styles.stat}><span className={styles.statIcon}>♢</span><div><small>Sesiones esta semana</small><strong>{loading?"—":trainings.length}</strong><span>Planificadas</span></div></div>
      <div className={styles.stat}><span className={styles.statIcon}>✓</span><div><small>Sesiones completadas</small><strong>{loading?"—":completed+" / "+trainings.length}</strong><span>{trainings.length?Math.round(completed/trainings.length*100)+"% del plan":"Sin sesiones aún"}</span></div></div>
