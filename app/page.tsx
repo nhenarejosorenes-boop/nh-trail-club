@@ -23,7 +23,7 @@ export default function Home() {
         </p>
 
         <h1 style={{ fontSize: "48px", marginBottom: "10px" }}>
-          NH TRAIL CLUB
+          NH / CLUB TRAIL RUNNING ALICANTE
         </h1>
 
         <h2
