@@ -80,7 +80,7 @@ export default function DashboardPage() {
      <section className={styles.panel}><div className={styles.panelHeading}><h2><span>▥</span> Mi progreso</h2><Link href="/progreso">Ver progreso →</Link></div><div className={styles.progress}><div><small>Sesiones completadas esta semana</small><strong>{completed} <span>de {trainings.length}</span></strong><div className={styles.track}><div style={{width:(trainings.length?completed/trainings.length*100:0)+"%"}}/></div></div><div><small>Sesiones pendientes</small><strong>{trainings.length-completed}</strong><p>Datos de tu planificación real</p></div></div></section>
      <section className={styles.panel}><div className={styles.panelHeading}><h2>Accesos rápidos</h2></div><div className={styles.quick}>{navigation.filter(n=>n.href!=="/dashboard").slice(0,6).map(n=><Link href={n.href} key={n.href}><span>{n.icon}</span>{n.label}</Link>)}</div></section>
     </div>
-    <footer>NH TRAINING CONCEPT · Tu meta, mi desafío</footer>
+    <footer className={styles.footer}>NH TRAINING CONCEPT · Tu meta, mi desafío</footer>
    </div>
   </section>
  </main>;
