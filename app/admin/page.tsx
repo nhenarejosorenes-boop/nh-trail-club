@@ -1,5 +1,3 @@
-```
-
 
 "use client";
 
@@ -22,8 +20,17 @@ type Actividad = {
   max_participants: number;
 };
 
-type Inscripcion = { activity_id: string; user_id: string; created_at: string };
-type Participante = { user_id: string; nombre: string; email: string };
+type Inscripcion = {
+  activity_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+type Participante = {
+  user_id: string;
+  nombre: string;
+  email: string;
+};
 
 type Formulario = {
   title: string;
@@ -43,6 +50,27 @@ const formularioInicial: Formulario = {
   max_participants: 15,
 };
 
+const campo: React.CSSProperties = {
+  width: "100%",
+  padding: 12,
+  borderRadius: 8,
+  border: "1px solid #444",
+  background: "#292929",
+  color: "white",
+  fontSize: 15,
+  boxSizing: "border-box",
+};
+
+const boton: React.CSSProperties = {
+  padding: "12px 18px",
+  border: "none",
+  borderRadius: 8,
+  background: "#ff8c1a",
+  color: "#111",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
 export default function AdminPage() {
   const [autorizado, setAutorizado] = useState(false);
   const [cargando, setCargando] = useState(true);
@@ -54,38 +82,12 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [inscripciones, setInscripciones] = useState<Inscripcion[]>([]);
-  const [inscritosAbiertos, setInscritosAbiertos] = useState<string | null>(null);
-  const [participantes, setParticipantes] = useState<Record<string, Participante[]>>({});
+  const [inscritosAbiertos, setInscritosAbiertos] =
+    useState<string | null>(null);
+  const [participantes, setParticipantes] =
+    useState<Record<string, Participante[]>>({});
   const [cargandoInscritos, setCargandoInscritos] = useState(false);
   const [errorInscritos, setErrorInscritos] = useState("");
-
-  async function verificarAdmin() {
-    const { data: authData, error: authError } =
-      await supabase.auth.getUser();
-
-    if (authError || !authData.user) {
-      setError("Debes iniciar sesión.");
-      setCargando(false);
-      return;
-    }
-
-    const { data, error: perfilError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", authData.user.id)
-      .single();
-
-    if (perfilError || data?.role !== "admin") {
-      setError("No tienes permisos de administrador.");
-      setCargando(false);
-      return;
-    }
-
-    setAutorizado(true);
-    await cargarActividades();
-    await cargarInscripciones();
-    setCargando(false);
-  }
 
   async function cargarActividades() {
     const { data, error: consultaError } = await supabase
@@ -96,7 +98,7 @@ export default function AdminPage() {
     if (consultaError) {
       setError(consultaError.message);
     } else {
-      setActividades(data || []);
+      setActividades((data || []) as Actividad[]);
     }
   }
 
@@ -104,75 +106,84 @@ export default function AdminPage() {
     const { data, error: consultaError } = await supabase
       .from("activity_registrations")
       .select("activity_id,user_id,created_at");
+
     if (consultaError) {
-      setErrorInscritos("No se pueden consultar las inscripciones: " + consultaError.message);
+      setErrorInscritos(consultaError.message);
     } else {
-      setInscripciones(data || []);
+      setInscripciones((data || []) as Inscripcion[]);
       setErrorInscritos("");
     }
   }
 
-  async function verInscritos(id: string) {
-    if (inscritosAbiertos === id) {
-      setInscritosAbiertos(null);
-      return;
-    }
-    setInscritosAbiertos(id);
-    setCargandoInscritos(true);
-    setErrorInscritos("");
-    const { data: registros, error: regError } = await supabase
-      .from("activity_registrations")
-      .select("activity_id,user_id,created_at")
-      .eq("activity_id", id);
-    if (regError) {
-      setErrorInscritos("No se pueden consultar los inscritos: " + regError.message);
-      setCargandoInscritos(false);
-      return;
-    }
-    const lista = registros || [];
-    setInscripciones((prev) => [...prev.filter((r) => r.activity_id !== id), ...lista]);
-    if (!lista.length) {
-      setParticipantes((prev) => ({ ...prev, [id]: [] }));
-      setCargandoInscritos(false);
-      return;
-    }
-    const ids = lista.map((r) => r.user_id);
-    const [perfiles, deportistas] = await Promise.all([
-      supabase.from("profiles").select("id,full_name,email").in("id", ids),
-      supabase.from("deportistas").select("user_id,nombre,email").in("user_id", ids),
-    ]);
-    if (perfiles.error && deportistas.error) {
-      setErrorInscritos("No se pudieron consultar los nombres: " + perfiles.error.message);
-    }
-    const resultado: Participante[] = ids.map((user_id) => {
-      const d = deportistas.data?.find((x) => x.user_id === user_id);
-      const p = perfiles.data?.find((x) => x.id === user_id);
-      return {
-        user_id,
-        nombre: d?.nombre || p?.full_name || "Nombre no disponible",
-        email: d?.email || p?.email || "Correo no disponible",
-      };
-    });
-    setParticipantes((prev) => ({ ...prev, [id]: resultado }));
-    setCargandoInscritos(false);
-  }
-
   useEffect(() => {
-    verificarAdmin();
+    let activo = true;
+
+    async function iniciar() {
+      try {
+        const { data: authData, error: authError } =
+          await supabase.auth.getUser();
+
+        if (!activo) return;
+
+        if (authError || !authData.user) {
+          setError("Debes iniciar sesión.");
+          return;
+        }
+
+        const { data, error: perfilError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", authData.user.id)
+          .single();
+
+        if (!activo) return;
+
+        if (perfilError || data?.role !== "admin") {
+          setError("No tienes permisos de administrador.");
+          return;
+        }
+
+        setAutorizado(true);
+        await Promise.all([
+          cargarActividades(),
+          cargarInscripciones(),
+        ]);
+      } catch (err) {
+        if (activo) {
+          setError(
+            err instanceof Error ? err.message : "Error de conexión."
+          );
+        }
+      } finally {
+        if (activo) setCargando(false);
+      }
+    }
+
+    iniciar();
+
+    return () => {
+      activo = false;
+    };
   }, []);
 
   function actualizarCampo(
-    campo: keyof Formulario,
+    nombre: keyof Formulario,
     valor: string | number
   ) {
     setFormulario((anterior) => ({
       ...anterior,
-      [campo]: valor,
+      [nombre]: valor,
     }));
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null);
+    setFormulario({ ...formularioInicial });
   }
 
   function prepararEdicion(actividad: Actividad) {
     setEditandoId(actividad.id);
+
     setFormulario({
       title: actividad.title,
       description: actividad.description || "",
@@ -187,17 +198,13 @@ export default function AdminPage() {
       location: actividad.location || "",
       max_participants: actividad.max_participants,
     });
-    setMensaje("");
+
     setError("");
+    setMensaje("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function cancelarEdicion() {
-    setEditandoId(null);
-    setFormulario(formularioInicial);
-  }
-
-  async function guardarActividad(e: React.FormEvent) {
+  async function guardarActividad(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (procesando) return;
 
@@ -210,7 +217,7 @@ export default function AdminPage() {
       !Number.isInteger(formulario.max_participants) ||
       formulario.max_participants < 1
     ) {
-      setError("Comprueba el título, fecha y plazas.");
+      setError("Comprueba el título, la fecha y las plazas.");
       return;
     }
 
@@ -223,53 +230,61 @@ export default function AdminPage() {
 
     setProcesando(true);
 
-    const datos = {
-      title: formulario.title.trim(),
-      description: formulario.description.trim() || null,
-      activity_type: formulario.activity_type,
-      starts_at: fecha.toISOString(),
-      location: formulario.location.trim() || null,
-      max_participants: formulario.max_participants,
-    };
+    try {
+      const datos = {
+        title: formulario.title.trim(),
+        description: formulario.description.trim() || null,
+        activity_type: formulario.activity_type,
+        starts_at: fecha.toISOString(),
+        location: formulario.location.trim() || null,
+        max_participants: formulario.max_participants,
+      };
 
-    const resultado = editandoId
-      ? await supabase
-          .from("club_activities")
-          .update(datos)
-          .eq("id", editandoId)
-          .select("id")
-      : await supabase
-          .from("club_activities")
-          .insert(datos)
-          .select("id");
+      const resultado = editandoId
+        ? await supabase
+            .from("club_activities")
+            .update(datos)
+            .eq("id", editandoId)
+            .select("id")
+        : await supabase
+            .from("club_activities")
+            .insert(datos)
+            .select("id");
 
-    if (resultado.error) {
-      setError(resultado.error.message);
-    } else if (!resultado.data?.length) {
-      setError("No se pudo confirmar la operación.");
-    } else {
-      setMensaje(
-        editandoId
-          ? "Actividad actualizada correctamente."
-          : "Actividad creada correctamente."
+      if (resultado.error) {
+        setError(resultado.error.message);
+      } else if (!resultado.data?.length) {
+        setError("No se pudo confirmar la operación.");
+      } else {
+        setMensaje(
+          editandoId
+            ? "Actividad actualizada correctamente."
+            : "Actividad creada correctamente."
+        );
+
+        cancelarEdicion();
+        await Promise.all([
+          cargarActividades(),
+          cargarInscripciones(),
+        ]);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Error al guardar."
       );
-      cancelarEdicion();
-      await cargarActividades();
-      await cargarInscripciones();
+    } finally {
+      setProcesando(false);
     }
-
-    setProcesando(false);
   }
 
   async function eliminarActividad(actividad: Actividad) {
     if (procesando) return;
 
-    
     const confirmar = window.confirm(
-      "Eliminar la actividad " + actividad.title + "? Esta accion puede afectar a las inscripciones."
+      "¿Eliminar la actividad " +
+        actividad.title +
+        "? Esta acción puede afectar a las inscripciones."
     );
-
-
 
     if (!confirmar) return;
 
@@ -277,45 +292,114 @@ export default function AdminPage() {
     setError("");
     setMensaje("");
 
-    const { data, error: eliminarError } = await supabase
-      .from("club_activities")
-      .delete()
-      .eq("id", actividad.id)
-      .select("id");
+    try {
+      const { data, error: eliminarError } = await supabase
+        .from("club_activities")
+        .delete()
+        .eq("id", actividad.id)
+        .select("id");
 
-    if (eliminarError) {
-      setError(eliminarError.message);
-    } else if (!data?.length) {
-      setError("No se pudo confirmar la eliminación.");
-    } else {
-      setMensaje("Actividad eliminada correctamente.");
-      await cargarActividades();
-      await cargarInscripciones();
+      if (eliminarError) {
+        setError(eliminarError.message);
+      } else if (!data?.length) {
+        setError("No se pudo confirmar la eliminación.");
+      } else {
+        setMensaje("Actividad eliminada correctamente.");
+        setInscritosAbiertos(null);
+        await Promise.all([
+          cargarActividades(),
+          cargarInscripciones(),
+        ]);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Error al eliminar."
+      );
+    } finally {
+      setProcesando(false);
     }
-
-    setProcesando(false);
   }
 
-  const campo: React.CSSProperties = {
-    width: "100%",
-    padding: 12,
-    borderRadius: 8,
-    border: "1px solid #444",
-    background: "#292929",
-    color: "white",
-    fontSize: 15,
-    boxSizing: "border-box",
-  };
+  async function verInscritos(id: string) {
+    if (inscritosAbiertos === id) {
+      setInscritosAbiertos(null);
+      return;
+    }
 
-  const boton: React.CSSProperties = {
-    padding: "12px 18px",
-    border: "none",
-    borderRadius: 8,
-    background: "#ff8c1a",
-    color: "#111",
-    fontWeight: "bold",
-    cursor: "pointer",
-  };
+    setInscritosAbiertos(id);
+    setCargandoInscritos(true);
+    setErrorInscritos("");
+
+    try {
+      const { data, error: regError } = await supabase
+        .from("activity_registrations")
+        .select("activity_id,user_id,created_at")
+        .eq("activity_id", id);
+
+      if (regError) throw regError;
+
+      const lista = (data || []) as Inscripcion[];
+
+      setInscripciones((prev) => [
+        ...prev.filter((r) => r.activity_id !== id),
+        ...lista,
+      ]);
+
+      if (lista.length === 0) {
+        setParticipantes((prev) => ({ ...prev, [id]: [] }));
+        return;
+      }
+
+      const ids = [...new Set(lista.map((r) => r.user_id))];
+
+      const [perfiles, deportistas] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id,full_name,email")
+          .in("id", ids),
+        supabase
+          .from("deportistas")
+          .select("user_id,nombre,email")
+          .in("user_id", ids),
+      ]);
+
+      if (perfiles.error && deportistas.error) {
+        throw new Error(
+          "No se pudieron consultar los datos de participantes."
+        );
+      }
+
+      const resultado: Participante[] = ids.map((user_id) => {
+        const d = deportistas.data?.find(
+          (x) => x.user_id === user_id
+        );
+        const p = perfiles.data?.find(
+          (x) => x.id === user_id
+        );
+
+        return {
+          user_id,
+          nombre:
+            d?.nombre || p?.full_name || "Nombre no disponible",
+          email:
+            d?.email || p?.email || "Correo no disponible",
+        };
+      });
+
+      setParticipantes((prev) => ({
+        ...prev,
+        [id]: resultado,
+      }));
+    } catch (err) {
+      setErrorInscritos(
+        err instanceof Error
+          ? err.message
+          : "Error al consultar participantes."
+      );
+    } finally {
+      setCargandoInscritos(false);
+    }
+  }
 
   return (
     <main
@@ -499,100 +583,175 @@ export default function AdminPage() {
               </form>
             </section>
 
-            <h2 style={{ color: "#ff8c1a", marginTop: 40 }}>
+            <h2
+              style={{
+                color: "#ff8c1a",
+                marginTop: 40,
+              }}
+            >
               Actividades registradas
             </h2>
 
-            {errorInscritos && !inscritosAbiertos && <p role="alert" style={{color:"#ff8888"}}>{errorInscritos}</p>}
+            {errorInscritos && !inscritosAbiertos && (
+              <p role="alert" style={{ color: "#ff8888" }}>
+                {errorInscritos}
+              </p>
+            )}
+
             {actividades.length === 0 && (
               <p>No hay actividades registradas.</p>
             )}
 
-            {actividades.map((actividad) => (
-              <article
-                key={actividad.id}
-                style={{
-                  background: "#1e1e1e",
-                  padding: 22,
-                  borderRadius: 12,
-                  marginBottom: 15,
-                  border: "1px solid #333",
-                }}
-              >
-                <h3 style={{ color: "#ff8c1a" }}>
-                  {actividad.title}
-                </h3>
+            {actividades.map((actividad) => {
+              const total = inscripciones.filter(
+                (r) => r.activity_id === actividad.id
+              ).length;
 
-                <p>
-                  {new Date(actividad.starts_at).toLocaleString(
-                    "es-ES",
-                    {
+              const disponibles = Math.max(
+                0,
+                actividad.max_participants - total
+              );
+
+              return (
+                <article
+                  key={actividad.id}
+                  style={{
+                    background: "#1e1e1e",
+                    padding: 22,
+                    borderRadius: 12,
+                    marginBottom: 15,
+                    border: "1px solid #333",
+                  }}
+                >
+                  <h3 style={{ color: "#ff8c1a" }}>
+                    {actividad.title}
+                  </h3>
+
+                  <p>
+                    {new Date(
+                      actividad.starts_at
+                    ).toLocaleString("es-ES", {
                       dateStyle: "long",
                       timeStyle: "short",
                       timeZone: "Europe/Madrid",
-                    }
-                  )}
-                </p>
+                    })}
+                  </p>
 
-                <p>
-                  Ubicación: {actividad.location || "Por determinar"}
-                </p>
+                  <p>
+                    Ubicación:{" "}
+                    {actividad.location || "Por determinar"}
+                  </p>
 
-                <p>
-                  Plazas máximas: {actividad.max_participants}
-                </p>
+                  <p>
+                    Plazas máximas:{" "}
+                    {actividad.max_participants}
+                  </p>
 
-                <p style={{ color: "#8ee6a0" }}>
-                  Inscritos: {inscripciones.filter((r) => r.activity_id === actividad.id).length}
-                  {" / "}{actividad.max_participants} · Plazas disponibles: {Math.max(0, actividad.max_participants - inscripciones.filter((r) => r.activity_id === actividad.id).length)}
-                </p>
-                <button type="button" style={boton} onClick={() => verInscritos(actividad.id)}>
-                  {inscritosAbiertos === actividad.id ? "Ocultar inscritos" : "Ver inscritos"}
-                </button>
-                {inscritosAbiertos === actividad.id && (
-                  <section style={{ background: "#292929", padding: 16, marginTop: 12, borderRadius: 8 }}>
-                    <h4>Participantes inscritos</h4>
-                    {cargandoInscritos ? <p>Cargando...</p> : errorInscritos ? <p role="alert" style={{color:"#ff8888"}}>{errorInscritos}</p> :
-                      (participantes[actividad.id] || []).length === 0 ? <p>No hay inscritos.</p> :
-                      <ul>{(participantes[actividad.id] || []).map((p) => <li key={p.user_id}>{p.nombre} — {p.email}</li>)}</ul>}
-                  </section>
-                )}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    flexWrap: "wrap",
-                  }}
-                >
+                  <p style={{ color: "#8ee6a0" }}>
+                    Inscritos: {total} /{" "}
+                    {actividad.max_participants}
+                    {" · "}
+                    Plazas disponibles: {disponibles}
+                  </p>
+
                   <button
                     type="button"
-                    disabled={procesando}
                     style={boton}
-                    onClick={() => prepararEdicion(actividad)}
+                    onClick={() =>
+                      verInscritos(actividad.id)
+                    }
                   >
-                    Editar
+                    {inscritosAbiertos === actividad.id
+                      ? "Ocultar inscritos"
+                      : "Ver inscritos"}
                   </button>
 
-                  <button
-                    type="button"
-                    disabled={procesando}
+                  {inscritosAbiertos === actividad.id && (
+                    <section
+                      style={{
+                        background: "#292929",
+                        padding: 16,
+                        marginTop: 12,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <h4>Participantes inscritos</h4>
+
+                      {cargandoInscritos ? (
+                        <p>Cargando...</p>
+                      ) : errorInscritos ? (
+                        <p
+                          role="alert"
+                          style={{ color: "#ff8888" }}
+                        >
+                          {errorInscritos}
+                        </p>
+                      ) : (
+                        <>
+                          {(participantes[actividad.id] || [])
+                            .length === 0 ? (
+                            <p>No hay inscritos.</p>
+                          ) : (
+                            <ul>
+                              {(
+                                participantes[actividad.id] || []
+                              ).map((p) => (
+                                <li key={p.user_id}>
+                                  {p.nombre} — {p.email}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </>
+                      )}
+                    </section>
+                  )}
+
+                  <div
                     style={{
-                      ...boton,
-                      background: "#b73b3b",
-                      color: "white",
+                      display: "flex",
+                      gap: 12,
+                      flexWrap: "wrap",
+                      marginTop: 15,
                     }}
-                    onClick={() => eliminarActividad(actividad)}
                   >
-                    Eliminar
-                  </button>
-                </div>
-              </article>
-            ))}
+                    <button
+                      type="button"
+                      disabled={procesando}
+                      style={boton}
+                      onClick={() =>
+                        prepararEdicion(actividad)
+                      }
+                    >
+                      Editar
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={procesando}
+                      style={{
+                        ...boton,
+                        background: "#b73b3b",
+                        color: "white",
+                      }}
+                      onClick={() =>
+                        eliminarActividad(actividad)
+                      }
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
           </>
         )}
 
         <div style={{ marginTop: 35 }}>
-          <Link href="/dashboard" style={{ color: "#ff8c1a" }}>
+          <Link
+            href="/dashboard"
+            style={{ color: "#ff8c1a" }}
+          >
             Volver al panel principal
           </Link>
         </div>
@@ -600,4 +759,3 @@ export default function AdminPage() {
     </main>
   );
 }
-```
