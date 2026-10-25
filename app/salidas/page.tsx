@@ -240,6 +240,7 @@ export default function SalidasPage() {
   };
 
   return (
+    <SubscriptionAccessGate>
     <main
       style={{
         minHeight: "100vh",
@@ -323,7 +324,6 @@ export default function SalidasPage() {
               : 0;
 
           return (
-    <SubscriptionAccessGate>
             <div
               key={actividad.id}
               style={{
