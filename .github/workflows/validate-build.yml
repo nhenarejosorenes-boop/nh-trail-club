@@ -2,6 +2,8 @@ name: Validar compilacion NH Trail Club
 on:
   push:
     branches: [desarrollo-agrupado]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 jobs:
   build:
