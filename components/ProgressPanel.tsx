@@ -6,6 +6,7 @@ import MembershipNotice from "./MembershipNotice";
 import { loadMembershipAccess } from "@/lib/membership-client";
 import type { MembershipAccess } from "@/lib/membership-model";
 import { athleteToday, monthRange, trainingProgress, type ProgressSession, type TrailEntry } from "@/lib/training-progress";
+import { loadTrailMonth } from "@/lib/trail-log";
 import styles from "./athlete-panels.module.css";
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
 const number = (n: number) => n.toLocaleString("es-ES", { maximumFractionDigits: 1 });
@@ -37,12 +38,10 @@ export default function ProgressPanel() {
       const [plan, log] = await Promise.all([
         supabase.from("weekly_training_plan").select("id,session_date,category,title,completed")
           .eq("athlete_id", uid).gte("session_date", range.start).lt("session_date", range.end).order("session_date", { ascending: false }),
-        supabase.from("trail_activity_log").select("id,activity_date,distance_km,elevation_m,duration_minutes,effort,feelings")
-          .eq("athlete_id", uid).gte("activity_date", range.start).lt("activity_date", range.end).order("activity_date", { ascending: false }),
+        loadTrailMonth(supabase, uid, range),
       ]);
       if (plan.error) throw plan.error;
-      if (log.error) throw log.error;
-      if (active) { setSessions((plan.data ?? []) as ProgressSession[]); setEntries((log.data ?? []) as TrailEntry[]); setLoadedMonth(month); }
+      if (active) { setSessions((plan.data ?? []) as ProgressSession[]); setEntries(log); setLoadedMonth(month); }
     } catch { if (active) setError("No se pudieron cargar tus registros. Comprueba la conexión y vuelve a intentarlo."); }
     finally { if (active) setLoading(false); } })();
     return () => { active = false; };
