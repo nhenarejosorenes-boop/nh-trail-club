@@ -2,9 +2,11 @@
 
 ## Local application checks
 
-Run `node --experimental-strip-types --test supabase/tests/*.test.mjs`, `npx tsc --noEmit` and `npm run build` from the repository root. The current local suite has **43 checks**: 20 membership cases, 13 progress cases and 10 trail-log cases.
+Run `node --experimental-strip-types --test supabase/tests/*.test.mjs`, `npx tsc --noEmit` and `npm run build` from the repository root. The current local suite has **52 checks**: 20 membership cases, 13 progress cases, 10 trail-log cases and 9 coach-tracking cases.
 
 The trail-log checks cover monthly pagination beyond 1000 records, ownership/date filters, stable ordering, rejection of incomplete loads, and date/numeric validation for creating or editing a run. These use synthetic in-memory responses, perform no database writes, and do not replace authenticated browser verification. The same monthly loader feeds the run history and progress panel.
+
+Coach checks cover complete monthly pagination for runs and plans, paginated athlete choices, failed loads and planner links that preserve a known linked athlete and a valid calendar week. Coach metrics reuse the progress model's Monday-to-Sunday weeks. Direct planner links apply only after the existing administrator check; database permissions remain authoritative. No production records are modified by these tests.
 
 ## Database verification history
 

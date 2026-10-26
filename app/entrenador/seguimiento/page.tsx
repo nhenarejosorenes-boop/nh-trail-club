@@ -1,63 +1,127 @@
 "use client";
-import {useEffect,useState} from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { createClient } from "@supabase/supabase-js";
+import { athleteToday, monthRange, trainingProgress } from "@/lib/training-progress";
+import { loadCoachAthletes, loadCoachMonth, type CoachAthlete, type CoachLog, type CoachPlan } from "@/lib/coach-tracking";
 import coach from "./coach.module.css";
-import {createClient} from "@supabase/supabase-js";
-const supabase=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
-type Athlete={id:string;nombre:string;nivel:string|null;user_id:string|null};
-type Log={athlete_id:string;activity_date:string;distance_km:number;elevation_m:number;duration_minutes:number;effort:number|null};
-type Plan={athlete_id:string;session_date:string;completed:boolean};
-const style:React.CSSProperties={background:"#202020",padding:18,borderRadius:12,border:"1px solid #383838"};
-const nowMonth=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")};
 
-// Weekly evolution chart: seven-day buckets within the selected calendar month.
-function WeeklyEvolution({rows}:{rows:Log[]}){
- 
- const weeks=[0,1,2,3,4].map(i=>({label:"Sem "+(i+1),km:0,elevation:0,minutes:0,count:0}));
- rows.forEach(r=>{const day=Number(r.activity_date.slice(8,10));const i=Math.min(4,Math.floor((day-1)/7));if(!Number.isFinite(i))return;weeks[i].km+=Number(r.distance_km);weeks[i].elevation+=Number(r.elevation_m);weeks[i].minutes+=Number(r.duration_minutes);weeks[i].count++});
- const maxKm=Math.max(1,...weeks.map(w=>w.km)),maxElevation=Math.max(1,...weeks.map(w=>w.elevation));
- return <section className={coach.panel} style={{marginBottom:24,padding:20,borderRadius:12}}><h2 style={{marginTop:0}}>Evolución semanal</h2><p style={{color:"#aaa",fontSize:13}}>Semanas agrupadas por días 1–7, 8–14, 15–21, 22–28 y 29–fin de mes. Registros del periodo seleccionado.</p>
- <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,alignItems:"end",marginTop:20}}>
- {weeks.map(w=><div key={w.label} style={{minWidth:0}}><div style={{height:155,display:"flex",gap:5,alignItems:"end",justifyContent:"center",borderBottom:"1px solid #555",paddingBottom:4}}>
- <div title={w.km.toFixed(1)+" km"} style={{width:"42%",height:(w.km/maxKm*135)+"px",minHeight:w.km?3:0,background:"#ff921f",borderRadius:"5px 5px 0 0"}}/>
- <div title={Math.round(w.elevation)+" m+"} style={{width:"42%",height:(w.elevation/maxElevation*135)+"px",minHeight:w.elevation?3:0,background:"#68b9ce",borderRadius:"5px 5px 0 0"}}/>
- </div><p style={{fontSize:12,color:"#aaa",textAlign:"center"}}>{w.label}</p><p style={{fontSize:12,textAlign:"center",margin:"4px 0"}}>{w.km.toFixed(1)} km</p><p style={{fontSize:11,color:"#8fd0e0",textAlign:"center",margin:"4px 0"}}>{Math.round(w.elevation)} m+</p></div>)}</div>
- <p style={{fontSize:12,color:"#aaa"}}><span style={{color:"#ff921f"}}>■</span> Distancia (km) · <span style={{color:"#68b9ce"}}>■</span> Desnivel (m+). Cada serie tiene su propia escala; compara tendencias, no alturas entre series.</p>
- {rows.length===0&&<p style={{color:"#aaa"}}>No hay entrenamientos registrados en este periodo.</p>}</section>
-}
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+const panel: React.CSSProperties = { padding: 20, borderRadius: 12, marginBottom: 24 };
+const field: React.CSSProperties = { display: "block", marginTop: 8, background: "#242424", color: "white", padding: 12, border: "1px solid #555", borderRadius: 8, maxWidth: "100%" };
+const fmt = (value: number) => value.toLocaleString("es-ES", { maximumFractionDigits: 1 });
+const dateLabel = (date: string) => new Date(date + "T12:00:00Z").toLocaleDateString("es-ES", { timeZone: "Europe/Madrid", day: "numeric", month: "short" });
+const delta = (current: number, previous: number) => previous === 0 ? "—" : (current >= previous ? "+" : "") + fmt((current - previous) / previous * 100) + "%";
+const linkStyle = { color: "#ffad63" };
 
+export default function SeguimientoEntrenador() {
+  const [athletes, setAthletes] = useState<CoachAthlete[]>([]);
+  const [logs, setLogs] = useState<CoachLog[]>([]);
+  const [plans, setPlans] = useState<CoachPlan[]>([]);
+  const [allowed, setAllowed] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [accessError, setAccessError] = useState("");
+  const [error, setError] = useState("");
+  const [selected, setSelected] = useState("");
+  const [month, setMonth] = useState(() => athleteToday().slice(0, 7));
+  const [loadedMonth, setLoadedMonth] = useState("");
+  const [reload, setReload] = useState(0);
+  const today = athleteToday();
 
-function WeeklyComparison({rows}:{rows:Log[]}){
- const weeks=Array.from({length:5},(_,i)=>({label:"Semana "+(i+1),km:0,elevation:0,minutes:0,effortSum:0,effortCount:0,activities:0}));
- for(const r of rows){const day=Number(r.activity_date.slice(8,10));if(day<1||day>31)continue;const w=weeks[Math.min(4,Math.floor((day-1)/7))];w.km+=Number(r.distance_km);w.elevation+=Number(r.elevation_m);w.minutes+=Number(r.duration_minutes);w.activities++;if(r.effort!==null){w.effortSum+=Number(r.effort);w.effortCount++}}
- const delta=(current:number,previous:number)=>previous===0?"—":((current-previous)/previous*100>=0?"+":"")+((current-previous)/previous*100).toFixed(1)+"%";
- const value=(n:number)=>n.toLocaleString("es-ES",{maximumFractionDigits:1});
- return <section className={coach.panel} style={{marginBottom:24,padding:20,borderRadius:12}}><h2 style={{marginTop:0}}>Comparativa de carga semanal</h2><p style={{color:"#aaa",fontSize:13}}>Variación respecto al bloque anterior del mismo mes. Una subida no implica necesariamente riesgo de lesión.</p>
- <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:690,textAlign:"left"}}><thead><tr>{["Periodo","Salidas","Distancia","Cambio km","Desnivel","Cambio m+","Duración","Esfuerzo medio"].map(x=><th key={x} style={{padding:"12px 8px",borderBottom:"1px solid #555",color:"#ff921f",fontSize:13}}>{x}</th>)}</tr></thead><tbody>{weeks.map((w,i)=><tr key={w.label}>{[w.label,w.activities,value(w.km)+" km",i?delta(w.km,weeks[i-1].km):"—",value(w.elevation)+" m+",i?delta(w.elevation,weeks[i-1].elevation):"—",value(w.minutes)+" min",w.effortCount?(w.effortSum/w.effortCount).toFixed(1)+"/10":"—"].map((x,j)=><td key={j} style={{padding:"12px 8px",borderBottom:"1px solid #383838",fontSize:13}}>{x}</td>)}</tr>)}</tbody></table></div>
- <p style={{fontSize:12,color:"#aaa"}}>El símbolo «—» indica que no existe una base de comparación (semana inicial o valor anterior igual a cero). Las semanas son días 1–7, 8–14, 15–21, 22–28 y 29–fin de mes. Las métricas reflejan solo entrenamientos registrados.</p></section>
-}
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const auth = await supabase.auth.getUser();
+        if (!active) return;
+        if (auth.error || !auth.data.user) { window.location.replace("/login"); return; }
+        const profile = await supabase.from("profiles").select("role").eq("id", auth.data.user.id).single();
+        if (!active) return;
+        if (profile.error) throw profile.error;
+        if (profile.data?.role !== "admin") { setAccessError("Acceso exclusivo para administradores."); return; }
+        const data = await loadCoachAthletes(supabase);
+        if (active) { setAthletes(data); setAllowed(true); }
+      } catch { if (active) setAccessError("No se pudo comprobar el acceso o cargar los deportistas. Vuelve a intentarlo."); }
+      finally { if (active) setChecking(false); }
+    })();
+    return () => { active = false; };
+  }, []);
 
+  useEffect(() => {
+    if (!allowed) return;
+    let active = true;
+    setLoading(true); setError("");
+    (async () => {
+      try {
+        const result = await loadCoachMonth(supabase, monthRange(month));
+        if (active) { setLogs(result.logs); setPlans(result.plans); setLoadedMonth(month); }
+      } catch { if (active) setError("No se pudo cargar el mes completo. Comprueba la conexión y vuelve a intentarlo."); }
+      finally { if (active) setLoading(false); }
+    })();
+    return () => { active = false; };
+  }, [allowed, month, reload]);
 
-function AthleteLoadTable({athletes,logs,plans,month}:{athletes:Athlete[];logs:Log[];plans:Plan[];month:string}){
- const fmt=(v:number)=>v.toLocaleString("es-ES",{maximumFractionDigits:1});
- const rows=athletes.map(a=>{const sessions=a.user_id?logs.filter(l=>l.athlete_id===a.user_id&&l.activity_date.startsWith(month)):[];const scheduled=a.user_id?plans.filter(p=>p.athlete_id===a.user_id&&p.session_date.startsWith(month)):[];const effortSessions=sessions.filter(s=>s.effort!==null);const load=effortSessions.reduce((sum,s)=>sum+Number(s.duration_minutes)*Number(s.effort),0);return {a,sessions,scheduled,load,missing:sessions.length-effortSessions.length,km:sessions.reduce((sum,s)=>sum+Number(s.distance_km),0),elevation:sessions.reduce((sum,s)=>sum+Number(s.elevation_m),0),minutes:sessions.reduce((sum,s)=>sum+Number(s.duration_minutes),0),effort:effortSessions.length?effortSessions.reduce((sum,s)=>sum+Number(s.effort),0)/effortSessions.length:null,completed:scheduled.filter(p=>p.completed).length}});
- return <section className={coach.panel} style={{marginBottom:24,padding:20,borderRadius:12}}><h2 style={{marginTop:0}}>Resumen de carga por corredor</h2><p style={{color:"#aaa",fontSize:13}}>Carga interna estimada = minutos × esfuerzo percibido (RPE). Solo se suman las sesiones con esfuerzo registrado; no es una medida clínica ni una predicción de lesiones.</p><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:810,textAlign:"left"}}><thead><tr>{["Corredor","Salidas","Km","Desnivel +","Tiempo","RPE medio","Carga sRPE","Plan completado"].map(h=><th key={h} style={{padding:12,color:"#ff921f",borderBottom:"1px solid #555",fontSize:13}}>{h}</th>)}</tr></thead><tbody>{rows.map(r=><tr key={r.a.id}><td style={{padding:12,borderBottom:"1px solid #383838",fontWeight:700}}>{r.a.nombre}{!r.a.user_id&&<small style={{display:"block",color:"#ffbe83"}}>Sin cuenta vinculada</small>}</td>{[r.sessions.length,fmt(r.km),fmt(r.elevation)+" m",fmt(r.minutes)+" min",r.effort===null?"—":r.effort.toFixed(1)+"/10",r.missing?fmt(r.load)+" (parcial)":fmt(r.load),r.scheduled.length?r.completed+"/"+r.scheduled.length:"—"].map((v,i)=><td key={i} style={{padding:12,borderBottom:"1px solid #383838",fontSize:13}}>{v}</td>)}</tr>)}</tbody></table></div>{rows.length===0&&<p>No hay deportistas disponibles.</p>}</section>
-}
-function RecentRuns({athletes,logs,month}:{athletes:Athlete[];logs:Log[];month:string}){
- const names=new Map(athletes.filter(a=>a.user_id).map(a=>[a.user_id!,a.nombre]));
- const recent=logs.filter(l=>l.activity_date.startsWith(month)&&names.has(l.athlete_id)).sort((a,b)=>b.activity_date.localeCompare(a.activity_date)).slice(0,8);
- return <section className={coach.panel} style={{marginBottom:24,padding:20,borderRadius:12}}><h2 style={{marginTop:0}}>Últimas salidas registradas</h2>{recent.length===0?<p style={{color:"#aaa"}}>Todavía no hay salidas registradas para este mes.</p>:<div style={{overflowX:"auto"}}><table style={{width:"100%",minWidth:550,borderCollapse:"collapse",textAlign:"left"}}><thead><tr>{["Fecha","Corredor","Km","Desnivel +","Duración","RPE"].map(h=><th key={h} style={{padding:10,borderBottom:"1px solid #555",color:"#ff921f"}}>{h}</th>)}</tr></thead><tbody>{recent.map((r,i)=><tr key={r.athlete_id+r.activity_date+i}>{[r.activity_date,names.get(r.athlete_id),Number(r.distance_km).toFixed(1),r.elevation_m+" m",r.duration_minutes+" min",r.effort??"—"].map((v,j)=><td key={j} style={{padding:10,borderBottom:"1px solid #333"}}>{v}</td>)}</tr>)}</tbody></table></div>}</section>
-}
+  const visible = athletes.filter(a => !selected || a.id === selected);
+  const linked = visible.filter(a => a.user_id);
+  const linkedIds = new Set(linked.map(a => a.user_id!));
+  const visibleLogs = logs.filter(log => linkedIds.has(log.athlete_id));
+  const visiblePlans = plans.filter(plan => linkedIds.has(plan.athlete_id));
+  const progress = trainingProgress(visiblePlans, visibleLogs, month, today);
+  const athleteRows = useMemo(() => athletes.map(athlete => ({ athlete, progress: trainingProgress(
+    athlete.user_id ? plans.filter(p => p.athlete_id === athlete.user_id) : [],
+    athlete.user_id ? logs.filter(l => l.athlete_id === athlete.user_id) : [], month, today,
+  ) })), [athletes, plans, logs, month, today]);
+  const rows = athleteRows.filter(r => !selected || r.athlete.id === selected);
+  const range = monthRange(month);
+  const weeks = progress.weeks.map(week => {
+    const next = new Date(week.start + "T12:00:00Z"); next.setUTCDate(next.getUTCDate() + 7);
+    const end = next.toISOString().slice(0, 10);
+    const efforts = visibleLogs.filter(l => l.activity_date >= week.start && l.activity_date < end && l.effort !== null);
+    const last = new Date((end < range.end ? end : range.end) + "T12:00:00Z"); last.setUTCDate(last.getUTCDate() - 1);
+    return { ...week, label: dateLabel(week.start > range.start ? week.start : range.start) + " – " + dateLabel(last.toISOString().slice(0, 10)),
+      effort: efforts.length ? efforts.reduce((n, l) => n + l.effort!, 0) / efforts.length : null,
+      load: efforts.reduce((n, l) => n + l.duration_minutes * l.effort!, 0), missing: week.count - efforts.length };
+  });
+  const maxKm = Math.max(1, ...weeks.map(w => w.km));
+  const maxElevation = Math.max(1, ...weeks.map(w => w.elevation));
+  const planDate = month === today.slice(0, 7) ? today : range.start;
+  const planHref = (userId: string) => "/entrenamientos/plan?" + new URLSearchParams({ athlete: userId, date: planDate }).toString();
+  const waiting = loading || loadedMonth !== month;
+  const names = new Map(linked.map(a => [a.user_id!, a.nombre]));
+  const recent = [...visibleLogs].sort((a, b) => b.activity_date.localeCompare(a.activity_date) || a.id.localeCompare(b.id)).slice(0, 8);
 
-export default function SeguimientoEntrenador(){
- const [athletes,setAthletes]=useState<Athlete[]>([]);const [logs,setLogs]=useState<Log[]>([]);const [plans,setPlans]=useState<Plan[]>([]);const [loading,setLoading]=useState(true);const [allowed,setAllowed]=useState(false);const [error,setError]=useState("");const [selected,setSelected]=useState("");const [month,setMonth]=useState(nowMonth());
- useEffect(()=>{let active=true;(async()=>{try{const {data:auth,error:authError}=await supabase.auth.getUser();if(authError||!auth.user){window.location.replace("/login");return}const {data:profile,error:profileError}=await supabase.from("profiles").select("role").eq("id",auth.user.id).single();if(profileError)throw profileError;if(profile?.role!=="admin"){if(active)setError("Acceso exclusivo para administradores.");return}if(active)setAllowed(true);const [a,l,p]=await Promise.all([supabase.from("deportistas").select("id,nombre,nivel,user_id").order("nombre"),supabase.from("trail_activity_log").select("athlete_id,activity_date,distance_km,elevation_m,duration_minutes,effort").order("activity_date",{ascending:false}).limit(5000),supabase.from("weekly_training_plan").select("athlete_id,session_date,completed").order("session_date",{ascending:false}).limit(5000)]);if(a.error||l.error||p.error)throw new Error([a.error?.message,l.error?.message,p.error?.message].filter(Boolean).join(" · "));if(active){setAthletes((a.data??[]) as Athlete[]);setLogs((l.data??[]) as Log[]);setPlans((p.data??[]) as Plan[])}}catch(e){if(active)setError(e instanceof Error?e.message:"No se pudo cargar el seguimiento.")}finally{if(active)setLoading(false)}})();return()=>{active=false}},[]);
- const visible=athletes.filter(a=>!selected||a.id===selected);const filtered=(uid:string)=>logs.filter(l=>l.athlete_id===uid&&l.activity_date.startsWith(month));const planned=(uid:string)=>plans.filter(p=>p.athlete_id===uid&&p.session_date.startsWith(month));const total=(rows:Log[],key:"distance_km"|"elevation_m"|"duration_minutes")=>rows.reduce((sum,r)=>sum+Number(r[key]),0);const linked=athletes.filter(a=>a.user_id);const allLogs=linked.flatMap(a=>filtered(a.user_id!));const format=(v:number)=>v.toLocaleString("es-ES",{maximumFractionDigits:1});
- return <main className={coach.shell}><aside className={coach.sidebar}><div><div className={coach.logo}>NH</div><p className={coach.brand}>CLUB TRAIL RUNNING ALICANTE</p></div><nav><Link className={coach.navLink} href="/dashboard">⌂ Panel principal</Link><Link className={coach.navLink} href="/salidas">◉ Salidas del club</Link><Link className={coach.navLink} href="/entrenamientos">↗ Entrenamientos</Link><Link className={coach.navLink} href="/deportistas">♙ Deportistas</Link><Link className={coach.navLink} href="/entrenamientos/plan">▦ Planificación</Link><Link className={coach.navLink+" "+coach.navActive} href="/entrenador/seguimiento">▥ Panel del entrenador</Link></nav><div className={coach.tagline}>TU META,<br/>MI DESAFÍO</div><div className={coach.mobileNav}><Link href="/dashboard">Inicio</Link><Link href="/salidas">Salidas</Link><Link href="/deportistas">Deportistas</Link></div></aside><div className={coach.content}><p className={coach.eyebrow}>NH / CLUB TRAIL RUNNING ALICANTE</p><h1 className={coach.heading}>Panel del entrenador</h1><p className={coach.intro}>Seguimiento, análisis y evolución de corredores vinculados a su cuenta de usuario.</p><Link href="/dashboard" style={{color:"#ff921f"}}>← Volver al panel</Link>{error&&<p role="alert" style={{color:"#ffa9a9"}}>{error}</p>}{loading?<p>Cargando datos...</p>:allowed&&<><section className={coach.controls}><label>Mes de seguimiento<input type="month" value={month} onChange={e=>setMonth(e.target.value)} style={{display:"block",marginTop:8,background:"#242424",color:"white",padding:12,border:"1px solid #555",borderRadius:8}}/></label><label>Deportista<select value={selected} onChange={e=>setSelected(e.target.value)} style={{display:"block",marginTop:8,background:"#242424",color:"white",padding:12,border:"1px solid #555",borderRadius:8,maxWidth:"100%"}}><option value="">Todos los deportistas</option>{athletes.map(a=><option key={a.id} value={a.id}>{a.nombre}</option>)}</select></label></section>
- <section className={coach.stats}>{[["Corredores vinculados",linked.length],["Salidas registradas",selected?visible.reduce((n,a)=>n+(a.user_id?filtered(a.user_id).length:0),0):allLogs.length],["Kilómetros",format(total(selected?visible.flatMap(a=>a.user_id?filtered(a.user_id):[]):allLogs,"distance_km"))+" km"],["Desnivel",format(total(selected?visible.flatMap(a=>a.user_id?filtered(a.user_id):[]):allLogs,"elevation_m"))+" m+"]].map(([label,value])=><div key={label} className={coach.stat}><p className={coach.statLabel}>{label}</p><strong className={coach.statValue}>{value}</strong></div>)}</section>
- <div className={coach.charts}><WeeklyEvolution rows={selected?visible.flatMap(a=>a.user_id?filtered(a.user_id):[]):allLogs}/>
- <WeeklyComparison rows={selected?visible.flatMap(a=>a.user_id?filtered(a.user_id):[]):allLogs}/></div>
- <AthleteLoadTable athletes={visible} logs={logs} plans={plans} month={month}/>
- <RecentRuns athletes={visible} logs={logs} month={month}/>
- <h2 className={coach.sectionTitle}>Seguimiento individual</h2><div className={coach.athletes}>{visible.map(a=>{const entries=a.user_id?filtered(a.user_id):[];const ps=a.user_id?planned(a.user_id):[];const done=ps.filter(p=>p.completed).length;const efforts=entries.filter(e=>e.effort!==null);const mean=efforts.length?(efforts.reduce((s,e)=>s+Number(e.effort),0)/efforts.length).toFixed(1):"—";return <article key={a.id} className={coach.athlete}><h3 style={{marginTop:0}}>{a.nombre}</h3><p style={{color:"#aaa"}}>{a.nivel||"Nivel no indicado"}</p>{!a.user_id?<p style={{color:"#ffbe83"}}>Sin cuenta vinculada. Vincula su usuario para consultar registros.</p>:<><p><strong>{entries.length}</strong> salidas · <strong>{format(total(entries,"distance_km"))}</strong> km</p><p><strong>{format(total(entries,"elevation_m"))}</strong> m+ · <strong>{Math.round(total(entries,"duration_minutes")/60*10)/10}</strong> h</p><p>Esfuerzo medio: <strong>{mean}</strong> / 10</p><p>Plan completado: <strong>{done}/{ps.length}</strong> sesiones</p><div style={{height:8,background:"#444",borderRadius:8,overflow:"hidden"}}><div style={{height:"100%",width:(ps.length?done/ps.length*100:0)+"%",background:"#ff921f"}}/></div></>}</article>})}</div>{visible.length===0&&<p>No hay deportistas para mostrar.</p>}<p className={coach.footer}>Los datos representan registros introducidos por cada corredor, no una asistencia verificada. Los resultados se limitan al mes seleccionado y a los registros disponibles.</p></>}</div></main>
+  return <main className={coach.shell}>
+    <aside className={coach.sidebar}><div><div className={coach.logo}>NH</div><p className={coach.brand}>CLUB TRAIL RUNNING ALICANTE</p></div>
+      <nav aria-label="Navegación del entrenador">{[["/dashboard", "Panel principal"], ["/salidas", "Salidas del club"], ["/entrenamientos", "Entrenamientos"], ["/deportistas", "Deportistas"], ["/entrenamientos/plan", "Planificación"], ["/entrenador/seguimiento", "Panel del entrenador"]].map(([href, label]) => <Link key={href} href={href} className={coach.navLink + (href === "/entrenador/seguimiento" ? " " + coach.navActive : "")} aria-current={href === "/entrenador/seguimiento" ? "page" : undefined}>{label}</Link>)}</nav>
+      <div className={coach.tagline}>TU META,<br />MI DESAFÍO</div><div className={coach.mobileNav}><Link href="/dashboard">Inicio</Link><Link href="/entrenamientos/plan">Planificación</Link><Link href="/deportistas">Deportistas</Link></div>
+    </aside>
+    <div className={coach.content}>
+      <p className={coach.eyebrow}>NH / CLUB TRAIL RUNNING ALICANTE</p><h1 className={coach.heading}>Panel del entrenador</h1><p className={coach.intro}>Seguimiento mensual y planificación de los corredores vinculados.</p><Link href="/dashboard" style={linkStyle}>← Volver al panel</Link>
+      {checking ? <p role="status">Comprobando acceso y deportistas...</p> : accessError ? <section><p role="alert" style={{ color: "#ffa9a9" }}>{accessError}</p><button style={field} onClick={() => window.location.reload()}>Volver a comprobar</button></section> : allowed && <>
+        <section className={coach.controls}>
+          <label>Mes de seguimiento<input type="month" min="2000-01" max="2100-12" value={month} style={field} onChange={e => { const value = e.target.value; if (/^\d{4}-(0[1-9]|1[0-2])$/.test(value) && value >= "2000-01" && value <= "2100-12" && value !== month) { setMonth(value); setLoading(true); setError(""); } }} /></label>
+          <label>Deportista<select value={selected} onChange={e => setSelected(e.target.value)} style={field}><option value="">Todos los deportistas</option>{athletes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}</select></label>
+          <button style={field} disabled={loading} onClick={() => { setLoading(true); setReload(n => n + 1); }}>Actualizar mes</button>
+          {linked.length === 1 && <Link href={planHref(linked[0].user_id!)} style={linkStyle}>Abrir su planificación →</Link>}
+        </section>
+        {error ? <p role="alert" style={{ color: "#ffa9a9" }}>{error}</p> : waiting ? <p role="status">Cargando seguimiento del mes...</p> : <>
+          <section className={coach.stats}>{[["Corredores vinculados en la selección", new Set(linked.map(a => a.user_id)).size], ["Salidas registradas", progress.runs], ["Kilómetros", fmt(progress.km) + " km"], ["Desnivel positivo", fmt(progress.elevation) + " m+"]].map(([label, value]) => <div key={label} className={coach.stat}><p className={coach.statLabel}>{label}</p><strong className={coach.statValue}>{value}</strong></div>)}</section>
+          <div className={coach.charts}>
+            <section className={coach.panel} style={panel}><h2>Evolución semanal</h2><p className={coach.intro}>Semanas de lunes a domingo. Se incluyen exclusivamente los días del mes seleccionado.</p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(" + weeks.length + ",minmax(0,1fr))", gap: 8, alignItems: "end" }}>{weeks.map(w => <div key={w.start}>
+                <div aria-hidden="true" style={{ height: 150, display: "flex", gap: 5, alignItems: "end", justifyContent: "center", borderBottom: "1px solid #555" }}><div style={{ width: "42%", height: w.km / maxKm * 135, background: "#ff921f" }} /><div style={{ width: "42%", height: w.elevation / maxElevation * 135, background: "#68b9ce" }} /></div>
+                <p style={{ fontSize: 11, textAlign: "center" }}>{w.label}</p><p style={{ fontSize: 12, textAlign: "center", color: "#ffad63" }}>{fmt(w.km)} km</p><p style={{ fontSize: 12, textAlign: "center", color: "#8fd0e0" }}>{fmt(w.elevation)} m+</p>
+              </div>)}</div><p className={coach.footer}>Naranja: kilómetros. Azul: desnivel. Cada serie tiene su propia escala.</p>
+            </section>
+            <section className={coach.panel} style={panel}><h2>Comparativa semanal</h2><div style={{ overflowX: "auto" }}><table className={coach.table}><thead><tr>{["Periodo", "Salidas", "Km", "Cambio km", "Desnivel", "Cambio m+", "Minutos", "RPE medio", "Carga sRPE"].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead><tbody>{weeks.map((w, index) => <tr key={w.start}>{[w.label, w.count, fmt(w.km), index ? delta(w.km, weeks[index - 1].km) : "—", fmt(w.elevation), index ? delta(w.elevation, weeks[index - 1].elevation) : "—", fmt(w.minutes), w.effort === null ? "—" : fmt(w.effort), fmt(w.load) + (w.missing ? " (parcial)" : "")].map((value, i) => <td key={i}>{value}</td>)}</tr>)}</tbody></table></div><p className={coach.footer}>La primera y última semana pueden ser parciales. Las variaciones comparan solo sus días dentro del mes. «—» indica que no hay base de comparación.</p></section>
+          </div>
+          <section className={coach.panel} style={panel}><h2>Resumen por corredor</h2><div style={{ overflowX: "auto" }}><table className={coach.table}><thead><tr>{["Corredor", "Salidas", "Km", "Desnivel", "Minutos", "RPE medio", "Carga sRPE", "Plan completado", "Planificación"].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead><tbody>{rows.map(({ athlete: a, progress: p }) => <tr key={a.id}><th scope="row">{a.nombre}{!a.user_id && <small style={{ display: "block" }}>Sin cuenta vinculada</small>}</th>{[p.runs, fmt(p.km), fmt(p.elevation), fmt(p.minutes), p.averageEffort === null ? "—" : fmt(p.averageEffort), fmt(p.load) + (p.missingEffort ? " (parcial)" : ""), p.planned ? p.completed + "/" + p.planned : "—"].map((value, i) => <td key={i}>{a.user_id ? value : "—"}</td>)}<td>{a.user_id ? <Link style={linkStyle} href={planHref(a.user_id)}>Abrir plan</Link> : "Vincula una cuenta"}</td></tr>)}</tbody></table></div><p className={coach.footer}>Carga sRPE = minutos × esfuerzo registrado. El total es parcial cuando faltan esfuerzos. El plan incluye sesiones futuras del mes.</p></section>
+          <section className={coach.panel} style={panel}><h2>Últimas salidas del mes</h2>{recent.length === 0 ? <p>No hay salidas registradas para esta selección.</p> : <div style={{ overflowX: "auto" }}><table className={coach.table}><thead><tr>{["Fecha", "Corredor", "Km", "Desnivel", "Minutos", "RPE"].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead><tbody>{recent.map(log => <tr key={log.id}>{[dateLabel(log.activity_date), names.get(log.athlete_id), fmt(Number(log.distance_km)), fmt(log.elevation_m), fmt(log.duration_minutes), log.effort ?? "—"].map((value, i) => <td key={i}>{value}</td>)}</tr>)}</tbody></table></div>}</section>
+          <h2 className={coach.sectionTitle}>Seguimiento individual</h2><div className={coach.athletes}>{rows.map(({ athlete: a, progress: p }) => <article key={a.id} className={coach.athlete}><h3>{a.nombre}</h3><p className={coach.intro}>{a.nivel || "Nivel no indicado"}</p>{!a.user_id ? <p>Sin cuenta vinculada. No hay registros asociados que consultar.</p> : <><p>{p.runs} salidas · {fmt(p.km)} km · {fmt(p.elevation)} m+</p><p>{fmt(p.minutes)} min · RPE medio: {p.averageEffort === null ? "Sin datos" : fmt(p.averageEffort) + " / 10"}</p><p>Plan completado: {p.completed}/{p.planned} sesiones</p><div role="progressbar" aria-label={"Plan mensual completado de " + a.nombre} aria-valuenow={p.completion} aria-valuemin={0} aria-valuemax={100} style={{ height: 8, background: "#444", borderRadius: 8, overflow: "hidden" }}><div style={{ height: "100%", width: p.completion + "%", background: "#ff921f" }} /></div><p>{p.overdue} pendientes de fechas pasadas · {p.upcoming} pendientes de hoy y próximas</p><Link style={linkStyle} href={planHref(a.user_id)}>Gestionar planificación →</Link></>}</article>)}</div>
+          {rows.length === 0 && <p>No hay deportistas para mostrar.</p>}<p className={coach.footer}>Los registros de salidas y las sesiones completadas del plan son independientes. Las métricas reflejan únicamente los datos registrados del mes seleccionado.</p>
+        </>}
+      </>}
+    </div>
+  </main>;
 }
