@@ -4,6 +4,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
+import MembershipNotice from "@/components/MembershipNotice";
+import { loadMembershipAccess } from "@/lib/membership-client";
+import type { MembershipAccess } from "@/lib/membership-model";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,9 +42,13 @@ export default function SalidasPage() {
   const [procesando, setProcesando] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
+  const [membership, setMembership] = useState<MembershipAccess | null>(null);
+  const [accessError, setAccessError] = useState(false);
 
   async function cargarDatos() {
     setError("");
+    setAccessError(false);
+    try {
 
     const { data: authData, error: authError } =
       await supabase.auth.getUser();
@@ -51,7 +58,11 @@ export default function SalidasPage() {
     }
 
     const userId = authData.user?.id ?? null;
+    if (!userId || authError) { window.location.replace("/login"); return; }
     setUsuarioId(userId);
+    const access = await loadMembershipAccess(supabase, userId);
+    setMembership(access);
+    if (!access.club) { setActividades([]); setInscripciones([]); setPlazas({}); return; }
 
     const { data: actividadesData, error: actividadesError } =
       await supabase
@@ -146,6 +157,12 @@ export default function SalidasPage() {
     }
 
     setCargando(false);
+    } catch {
+      setAccessError(true);
+      setMembership(null);
+    } finally {
+      setCargando(false);
+    }
   }
 
   useEffect(() => {
@@ -238,6 +255,7 @@ export default function SalidasPage() {
     fontSize: 14,
   };
 
+  if (!cargando && (accessError || !membership?.club)) return <MembershipNotice access={membership} error={accessError} />;
   return (
     <main
       style={{

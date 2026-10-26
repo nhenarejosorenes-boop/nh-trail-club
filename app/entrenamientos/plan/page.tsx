@@ -3,6 +3,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
+import MembershipNotice from "@/components/MembershipNotice";
+import { loadMembershipAccess } from "@/lib/membership-client";
+import type { MembershipAccess } from "@/lib/membership-model";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
 type Session = { id: string; athlete_id: string; session_date: string; category: string; title: string; details: string; completed: boolean };
@@ -23,6 +26,8 @@ export default function PlanSemanalPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [membership, setMembership] = useState<MembershipAccess | null>(null);
+  const [accessError, setAccessError] = useState(false);
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
   const [category, setCategory] = useState("trail");
@@ -31,14 +36,17 @@ export default function PlanSemanalPage() {
   useEffect(() => {
     let active = true;
     async function init() {
+      try {
       const { data: auth, error: authError } = await supabase.auth.getUser();
       if (!active) return;
       if (authError || !auth.user) { window.location.replace("/login"); return; }
       setUserId(auth.user.id);
-      setSelected(auth.user.id);
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id",auth.user.id).single();
+      const access = await loadMembershipAccess(supabase, auth.user.id);
       if (!active) return;
-      if (profile?.role === "admin") {
+      setMembership(access);
+      if (!access.premium) { setLoading(false); return; }
+      setSelected(auth.user.id);
+      if (access.state === "admin") {
         setAdmin(true);
         const { data, error: athletesError } = await supabase.from("deportistas").select("user_id,nombre").not("user_id","is",null).order("nombre");
         if (!active) return;
@@ -46,6 +54,9 @@ export default function PlanSemanalPage() {
         else setAthletes((data ?? []) as Athlete[]);
       }
       setLoading(false);
+      } catch {
+        if (active) { setAccessError(true); setLoading(false); }
+      }
     }
     void init();
     return () => { active = false; };
@@ -100,6 +111,8 @@ export default function PlanSemanalPage() {
     const next = dateString(d); setWeek(next); setDate(next); setError("");
   }
   const weekEnd = new Date(week+"T12:00:00"); weekEnd.setDate(weekEnd.getDate()+6);
+  if (loading && !membership && !accessError) return <main style={{ padding: 40, background: "#111", color: "white", minHeight: "100vh" }}><p role="status">Comprobando tu acceso...</p></main>;
+  if (accessError || !membership?.premium) return <MembershipNotice access={membership} error={accessError} />;
   return <main style={{ minHeight:"100vh", background:"#111", color:"white", padding:"35px 20px", fontFamily:"Arial,sans-serif" }}>
     <div style={{ maxWidth:900, margin:"0 auto" }}>
       <p style={{ color:"#f28c28", fontWeight:"bold" }}>NH TRAINING CONCEPT</p>
