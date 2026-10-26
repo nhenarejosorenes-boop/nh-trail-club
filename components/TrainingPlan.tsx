@@ -89,11 +89,17 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
     let active = true;
     async function load() {
       setLoading(true);
+      try {
       const start = new Date(week+"T12:00:00");
       const end = new Date(start); end.setDate(end.getDate()+7);
       const { data, error: queryError } = await supabase.from("weekly_training_plan").select("id,athlete_id,session_date,category,title,details,completed")
         .eq("athlete_id", selected).gte("session_date",dateString(start)).lt("session_date",dateString(end)).order("session_date");
       if (active) { setSessions((data ?? []) as Session[]); setError(queryError?.message ?? ""); setLoading(false); }
+      } catch {
+        if (active) { setSessions([]); setError("No se pudo cargar la planificación. Comprueba tu conexión y vuelve a intentarlo."); }
+      } finally {
+        if (active) setLoading(false);
+      }
     }
     void load();
     return () => { active = false; };
@@ -126,23 +132,32 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
     finally { setBusy(false); }
   }
   async function toggle(s: Session) {
-    if (busy || (!admin && s.athlete_id !== userId)) return;
+    if (busy || loading || s.athlete_id !== selected || (!admin && s.athlete_id !== userId)) return;
     setBusy(true); setError("");
+    try {
     const { error: err } = await supabase.rpc("mark_training_completed",{ p_id:s.id, p_completed:!s.completed });
     if (err) setError(err.message); else await refresh();
-    setBusy(false);
+    } catch { setError("No se pudo actualizar la sesión. Comprueba tu conexión y vuelve a cargar la planificación para confirmar su estado."); }
+    finally { setBusy(false); }
   }
   async function remove(s: Session) {
-    if (!admin || busy || !window.confirm("¿Eliminar esta sesión?")) return;
+    if (!admin || busy || loading || s.athlete_id !== selected || !window.confirm("¿Eliminar esta sesión?")) return;
     setBusy(true); setError("");
-    const { error: err } = await supabase.from("weekly_training_plan").delete().eq("id",s.id);
-    if (err) setError(err.message); else await refresh();
-    setBusy(false);
+    try {
+    const { error: err, data } = await supabase.from("weekly_training_plan").delete().eq("id",s.id).eq("athlete_id",selected).select("id");
+    if (err) setError(err.message);
+    else {
+      if (editingId === s.id) clearEditor();
+      setMessage(data?.length ? "Sesión eliminada." : "La sesión ya no está disponible. Se ha actualizado la planificación.");
+      await refresh();
+    }
+    } catch { setError("No se pudo confirmar la eliminación. Comprueba tu conexión y vuelve a cargar la planificación para confirmar su estado."); }
+    finally { setBusy(false); }
   }
   function moveWeek(days: number) {
     if (busy) return;
     const d = new Date(week+"T12:00:00"); d.setDate(d.getDate()+days);
-    const next = dateString(d); setWeek(next); setDate(next); setError(""); setMessage(""); clearEditor();
+    const next = dateString(d); setLoading(true); setSessions([]); setWeek(next); setDate(next); setError(""); setMessage(""); clearEditor();
   }
   const visibleSessions = categoryFilter ? sessions.filter(s => s.category === categoryFilter) : sessions;
   const heading = categoryFilter === "fuerza" ? "Entrenamiento de fuerza" : categoryFilter === "trail" ? "Entrenamiento Trail Running" : showEditor ? "Planificación semanal" : "Mis entrenamientos";
@@ -160,7 +175,7 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
         {[{ href: "/entrenamientos", text: "Todos", active: !categoryFilter && !showEditor }, { href: "/entrenamientos/fuerza", text: "Fuerza", active: categoryFilter === "fuerza" }, { href: "/entrenamientos/trail", text: "Trail", active: categoryFilter === "trail" }, { href: "/entrenamientos/plan", text: admin ? "Gestionar planificación" : "Plan semanal", active: showEditor }].map(item => <Link key={item.href} href={item.href} aria-current={item.active ? "page" : undefined} style={{ ...button, display: "inline-block", textDecoration: "none", background: item.active ? "#f28c28" : "#292929", color: item.active ? "#111" : "white", border: "1px solid #555" }}>{item.text}</Link>)}
       </nav>
       {admin && <label>Deportista
-        <select style={input} value={selected} disabled={busy} onChange={e=>{setSelected(e.target.value);clearEditor();setMessage("");}}>
+        <select style={input} value={selected} disabled={busy} onChange={e=>{if(e.target.value === selected) return; setLoading(true);setSessions([]);setError("");setSelected(e.target.value);clearEditor();setMessage("");}}>
           <option value={userId}>Mi planificación</option>
           {athletes.filter(a=>a.user_id && a.user_id!==userId).map(a=><option key={a.user_id!} value={a.user_id!}>{a.nombre}</option>)}
         </select>
@@ -171,6 +186,7 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
         <button style={button} disabled={busy} onClick={()=>moveWeek(7)}>Siguiente →</button>
       </div>
       {error && <p role="alert" style={{ color:"#ff9999" }}>{error}</p>}
+      {error && <button type="button" style={button} disabled={busy} onClick={() => window.location.reload()}>Volver a cargar la planificación</button>}
       {message && <p role="status" style={{ color: "#8fddaa" }}>{message}</p>}
       {!loading && !error && <section aria-label="Resumen de la semana" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12, marginBottom: 22 }}>{[["Programadas", visibleSessions.length], ["Completadas", visibleSessions.filter(s => s.completed).length], ["Pendientes", visibleSessions.filter(s => !s.completed).length]].map(([label, value]) => <div key={label} style={card}><p style={{ color: "#bbb", fontSize: 13 }}>{label}</p><strong style={{ color: "#f28c28", fontSize: 28 }}>{value}</strong></div>)}</section>}
       {loading ? <p>Cargando planificación...</p> : error ? null : visibleSessions.length === 0 ? <section style={card}><h2>{categoryFilter ? "Sin sesiones de " + (categoryFilter === "fuerza" ? "fuerza" : "trail") + " esta semana" : "Sin sesiones programadas esta semana"}</h2><p style={{ color: "#ccc", lineHeight: 1.6 }}>{admin ? "Selecciona un deportista o utiliza la planificación para programar sus sesiones." : "Aquí aparecerán las sesiones que te asigne tu entrenador. Puedes consultar otras semanas con los botones Anterior y Siguiente."}</p>{categoryFilter && <Link href="/entrenamientos" style={{ color: "#f28c28" }}>Ver todos mis entrenamientos →</Link>}{admin && !showEditor && <p><Link href="/entrenamientos/plan" style={{ color: "#f28c28" }}>Programar entrenamientos →</Link></p>}</section> :
