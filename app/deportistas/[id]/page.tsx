@@ -18,6 +18,7 @@ type Deportista = {
   telefono: string | null;
   nivel: string | null;
   created_at: string;
+  user_id: string | null;
 };
 
 export default function FichaDeportistaPage() {
@@ -107,7 +108,7 @@ export default function FichaDeportistaPage() {
 
             <section style={tarjeta}>
               <h2 style={titulo}>Objetivos deportivos</h2>
-              <p>Próximamente: objetivos individuales del deportista.</p>
+              <p>{deportista?.user_id?<Link href={"/objetivos?"+new URLSearchParams({athlete:deportista.user_id}).toString()} style={{color:"#f28c28"}}>Gestionar objetivo principal, etapas y revisión semanal →</Link>:"Vincula una cuenta al deportista para gestionar su preparación."}</p>
             </section>
 
             <section style={tarjeta}>
