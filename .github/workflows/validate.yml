@@ -24,3 +24,5 @@ jobs:
         run: npx tsc --noEmit
       - name: Compilar Next.js
         run: npm run build
+      - name: Comprobar lector de archivos compilado
+        run: node supabase/tests/verify-activity-worker.mjs

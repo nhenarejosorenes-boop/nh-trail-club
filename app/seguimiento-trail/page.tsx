@@ -106,6 +106,7 @@ export default function SeguimientoTrail() {
   return <main className={styles.page}><div className={styles.inner}>
     <p className={styles.brand}>NH TRAINING CONCEPT</p><h1>Seguimiento de trail running</h1>
     <p className={styles.intro}>Registra tus salidas realizadas, corrige sus datos y consulta el historial por mes.</p>
+    <Link className={styles.link} href="/importar-actividad">Importar actividad FIT, TCX o GPX →</Link>
     <nav className={styles.nav}><Link className={styles.link} href="/dashboard">Mi panel</Link><Link className={styles.link} href="/progreso">Mi progreso</Link><Link className={styles.link} href="/entrenamientos/trail">Plan de trail</Link></nav>
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {message && <p role="status" className={styles.done}>{message}</p>}
@@ -141,6 +142,7 @@ export default function SeguimientoTrail() {
           <div style={{ display: "flex", gap: 12 }}><button type="button" style={button} disabled={busy} aria-label={"Editar salida del " + entry.activity_date} onClick={() => edit(entry)}>Editar</button><button type="button" className={styles.field} disabled={busy} aria-label={"Eliminar salida del " + entry.activity_date} onClick={() => void remove(entry.id)}>Eliminar</button></div>
         </div>
         <p>{Number(entry.distance_km).toFixed(2)} km · {entry.elevation_m} m+ · {entry.duration_minutes} min {entry.effort !== null ? "· Esfuerzo " + entry.effort + "/10" : ""}</p>
+        {entry.source === 'file' && <p className={styles.badge}>Importada de {entry.file_format?.toUpperCase()}{entry.linked_session_id ? ' · Vinculada al plan' : ''}</p>}
         {entry.feelings && <p className={styles.intro} style={{ whiteSpace: "pre-wrap" }}>{entry.feelings}</p>}
       </article>))}
     </section>
