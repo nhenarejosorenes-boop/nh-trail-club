@@ -20,6 +20,7 @@ export default function MembershipNotice({ access, error = false }: { access: Me
         <Link href="/suscripciones" style={{ background: "#ff922f", color: "#111", padding: 12, borderRadius: 8, textDecoration: "none", fontWeight: 800 }}>Ver modalidades</Link>
         <Link href={basic ? "/salidas" : "/mis-cuotas"} style={{ color: "#ffad63" }}>{basic ? "Salidas del club" : "Mis cuotas y avisos"}</Link>
         <Link href="/dashboard" style={{ color: "#ffad63" }}>Mi panel</Link>
+        <Link href="/mensajes" style={{ color: "#ffad63" }}>Hablar con el entrenador</Link>
         {!basic && <button onClick={() => window.location.reload()} style={{ padding: 12, background: "#333", color: "white", border: "1px solid #777", borderRadius: 8 }}>Comprobar de nuevo</button>}
       </div>
     </section>

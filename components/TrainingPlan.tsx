@@ -199,6 +199,7 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
         visibleSessions.map(s=><article key={s.id} style={card}>
           <p style={{ color:"#f28c28", fontWeight:"bold" }}>{new Date(s.session_date+"T12:00:00").toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})} · {s.category.toUpperCase()}</p>
           <h2>{s.title}</h2><p style={{ whiteSpace:"pre-wrap", color:"#ccc" }}>{s.details}</p>
+          <p><Link href={"/mensajes?" + new URLSearchParams({ athlete: s.athlete_id, training: s.id }).toString()} style={{ color: "#ffad63" }}>{admin ? "Enviar mensaje sobre esta sesión →" : "Consultar al entrenador sobre esta sesión →"}</Link></p>
           <label style={{ display:"inline-flex", alignItems:"center", gap:10 }}>
             <input type="checkbox" checked={s.completed} disabled={busy} onChange={()=>void toggle(s)} /> Sesión completada
           </label>

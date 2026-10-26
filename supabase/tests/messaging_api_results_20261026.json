@@ -1,0 +1,132 @@
+{
+  "environment": "TEST",
+  "passed": 25,
+  "failed": 0,
+  "checks": [
+    {
+      "check": "login_0",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "check": "identity_0",
+      "pass": true,
+      "http": null
+    },
+    {
+      "check": "login_1",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "check": "identity_1",
+      "pass": true,
+      "http": null
+    },
+    {
+      "check": "login_2",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "check": "identity_2",
+      "pass": true,
+      "http": null
+    },
+    {
+      "check": "client_send",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "check": "retry_no_duplicate",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "check": "foreign_history_hidden",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "check": "foreign_send_denied",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "check": "forged_sender_denied",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "check": "coach_reply",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "check": "client_inbox_only_self",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "check": "client_unread_reply",
+      "pass": true,
+      "http": null
+    },
+    {
+      "check": "read_receipt",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "check": "unread_cleared",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "check": "foreign_read_receipt_denied",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "check": "coach_reads_conversation",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "check": "message_edit_denied",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "check": "message_delete_denied",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "check": "anon_inbox_denied",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "check": "anon_history_denied",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "check": "logout_0",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "check": "logout_1",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "check": "logout_2",
+      "pass": true,
+      "http": 204
+    }
+  ]
+}
