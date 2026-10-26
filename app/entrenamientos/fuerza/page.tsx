@@ -1,8 +1,11 @@
+"use client";
 
 import Link from "next/link";
+import SubscriptionAccessGate from "../../components/SubscriptionAccessGate";
 
 export default function FuerzaPage() {
   return (
+ <SubscriptionAccessGate>
     <main
       style={{
         minHeight: "100vh",
@@ -54,5 +57,6 @@ export default function FuerzaPage() {
         </Link>
       </div>
     </main>
-  );
+ </SubscriptionAccessGate>
+ );
 }

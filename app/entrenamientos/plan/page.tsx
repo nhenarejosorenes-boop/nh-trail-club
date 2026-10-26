@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import SubscriptionAccessGate from "../../components/SubscriptionAccessGate";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
@@ -100,7 +101,7 @@ export default function PlanSemanalPage() {
     const next = dateString(d); setWeek(next); setDate(next); setError("");
   }
   const weekEnd = new Date(week+"T12:00:00"); weekEnd.setDate(weekEnd.getDate()+6);
-  return <main style={{ minHeight:"100vh", background:"#111", color:"white", padding:"35px 20px", fontFamily:"Arial,sans-serif" }}>
+  return <SubscriptionAccessGate minPlan="plus"><main style={{ minHeight:"100vh", background:"#111", color:"white", padding:"35px 20px", fontFamily:"Arial,sans-serif" }}>
     <div style={{ maxWidth:900, margin:"0 auto" }}>
       <p style={{ color:"#f28c28", fontWeight:"bold" }}>NH TRAINING CONCEPT</p>
       <h1>Planificación semanal</h1>
@@ -140,5 +141,5 @@ export default function PlanSemanalPage() {
       </section>}
       <p style={{ marginTop:35 }}><Link href="/entrenamientos" style={{ color:"#f28c28" }}>Volver a entrenamientos</Link></p>
     </div>
-  </main>;
+ </main></SubscriptionAccessGate>;
 }

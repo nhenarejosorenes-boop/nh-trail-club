@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import SubscriptionAccessGate from "../components/SubscriptionAccessGate";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -239,6 +240,7 @@ export default function SalidasPage() {
   };
 
   return (
+    <SubscriptionAccessGate>
     <main
       style={{
         minHeight: "100vh",
@@ -499,5 +501,6 @@ export default function SalidasPage() {
         </div>
       </div>
     </main>
+    </SubscriptionAccessGate>
   );
 }

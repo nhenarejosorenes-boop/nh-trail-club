@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import SubscriptionAccessGate from "../components/SubscriptionAccessGate";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -70,6 +71,7 @@ export default function ProgresoPage() {
   const pasadas = actividades.filter(a => new Date(a.starts_at).getTime() < ahora).length;
 
   return (
+    <SubscriptionAccessGate minPlan="plus">
     <main style={{ background: "#111", color: "white", minHeight: "100vh", padding: "40px 20px", fontFamily: "Arial, sans-serif" }}>
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
         <p style={{ color: "#f28c28", fontWeight: "bold" }}>NH TRAINING CONCEPT</p>
@@ -113,5 +115,6 @@ export default function ProgresoPage() {
         <Link href="/dashboard" style={{ color: "#f28c28" }}>Volver al panel</Link>
       </div>
     </main>
+    </SubscriptionAccessGate>
   );
 }

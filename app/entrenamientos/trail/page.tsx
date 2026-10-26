@@ -1,8 +1,11 @@
+"use client";
 
 import Link from "next/link";
+import SubscriptionAccessGate from "../../components/SubscriptionAccessGate";
 
 export default function TrailPage() {
   return (
+ <SubscriptionAccessGate>
     <main
       style={{
         minHeight: "100vh",
@@ -56,5 +59,6 @@ export default function TrailPage() {
         </Link>
       </div>
     </main>
-  );
+ </SubscriptionAccessGate>
+ );
 }
