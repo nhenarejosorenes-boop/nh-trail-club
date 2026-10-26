@@ -1,11 +1,12 @@
 "use client";
 import { useRef, useState, type FormEvent } from "react";
+import TrailWorkoutDesigner from "./TrailWorkoutDesigner";
 import TrailSegmentFields from "./TrailSegmentFields";
 import TrainingSessionContent from "./TrainingSessionContent";
 import { categories, stages, newExercise, starterTemplates, type TrainingDraft, type Exercise, type Stage, type TrainingTemplate, type LibraryExercise } from "@/lib/training-builder";
 import { libraryOptions, exerciseFromLibrary } from "@/lib/training-library";
 import s from "./training-builder.module.css";
-type Props = { categoryChosen:boolean; onCategory:(category:TrainingDraft["category"])=>void; draft: TrainingDraft; onChange: (draft: TrainingDraft)=>void; date: string; onDate: (date:string)=>void; min: string; max: string; editing: boolean; busy:boolean; error:string; message:string; templates:TrainingTemplate[]; templateError:string; templateBusy:boolean; onTemplate:(id:string)=>void; onSaveTemplate:(name:string)=>Promise<boolean>; onSave:(event:FormEvent<HTMLFormElement>)=>void; onCancel:()=>void; library:LibraryExercise[]; libraryBusy:boolean; libraryNotice:string; onLibrarySave:(exercise:Exercise)=>void };
+type Props = { onTrailWorkout:(id:string)=>void; categoryChosen:boolean; onCategory:(category:TrainingDraft["category"])=>void; draft: TrainingDraft; onChange: (draft: TrainingDraft)=>void; date: string; onDate: (date:string)=>void; min: string; max: string; editing: boolean; busy:boolean; error:string; message:string; templates:TrainingTemplate[]; templateError:string; templateBusy:boolean; onTemplate:(id:string)=>void; onSaveTemplate:(name:string)=>Promise<boolean>; onSave:(event:FormEvent<HTMLFormElement>)=>void; onCancel:()=>void; library:LibraryExercise[]; libraryBusy:boolean; libraryNotice:string; onLibrarySave:(exercise:Exercise)=>void };
 export default function TrainingComposer(p:Props) {
   const [preview,setPreview]=useState(true);
   const [templateName,setTemplateName]=useState("");
@@ -29,11 +30,13 @@ export default function TrainingComposer(p:Props) {
   }
   return <section className={s.panel} id="session-editor" aria-label="Editor de entrenamientos">
     <p className={s.eyebrow}>Diseña · Revisa · Programa</p><h2>{isTrail?(p.editing?"Editar sesión de carrera trail y montaña":"Crear sesión de carrera trail y montaña"):(p.editing?"Editar entrenamiento":"Crear entrenamiento")}</h2>
+    {isTrail&&<TrailWorkoutDesigner draft={p.draft} busy={p.busy||p.templateBusy} onChoose={p.onTrailWorkout}/>}
     <div className={s.grid}>
       <label className={s.label}>Empezar desde una plantilla<select className={s.field} disabled={p.busy||p.templateBusy} value={templateId} onChange={e=>{const id=e.target.value;if(!id)return;if((p.draft.title || structure.notes || structure.blocks.some(b=>b.items.length)) && !window.confirm("¿Sustituir este borrador por la plantilla? La sesión guardada no se modifica hasta pulsar Guardar.")){return;}setTemplateId("");p.onTemplate(id);}}><option value="">Selecciona una plantilla…</option><optgroup label="Plantillas de inicio">{starters.map(t=><option value={`starter:${t.id}`} key={t.id}>{t.name}</option>)}</optgroup><optgroup label="Plantillas del equipo">{savedTemplates.map(t=><option value={t.id} key={t.id}>{t.name}</option>)}</optgroup></select></label>
       <div><p className={s.muted}>Adapta las plantillas al nivel y al objetivo del deportista. La fecha y el cliente se eligen al programar.</p></div>
     </div>
     <div className={s.library}><h3>{isTrail?"Tramos de carrera y montaña":"Biblioteca de ejercicios"}</h3><p className={s.muted}>{isTrail?"Selecciona tareas de carrera o crea tus propios tramos. Organiza el calentamiento, el trabajo principal y la vuelta a la calma.":"Selecciona ejercicios de esta modalidad y movilidad. Puedes adaptarlos y guardar tus propios ejercicios con indicaciones y vídeos."}</p><label className={s.label}>Buscar {unit}<input className={s.field} type="search" value={librarySearch} onChange={e=>setLibrarySearch(e.target.value)} placeholder={isTrail?"Rodaje, cuesta, progresivos…":"Nombre del ejercicio"}/></label><p className={s.muted}>{library.length ? `${library.length} opciones disponibles. Selecciona uno dentro del bloque donde quieras añadirlo.` : "No hay ejercicios que coincidan con esta búsqueda."}</p>{librarySearch&&<button type="button" className={`${s.button} ${s.secondary}`} onClick={()=>setLibrarySearch("")}>Limpiar búsqueda</button>}{p.libraryNotice&&<p role="status" className={s.muted}>{p.libraryNotice}</p>}</div>
+    {isTrail&&<h3>2. Define la sesión y ajusta sus tramos</h3>}
     <div className={s.editorGrid}><form onSubmit={submit} noValidate aria-busy={p.busy}>
       <fieldset disabled={p.busy||p.templateBusy} style={{border:0,padding:0,margin:0,minWidth:0}}>
         <div className={s.grid}>

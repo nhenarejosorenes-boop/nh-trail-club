@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import MembershipNotice from "@/components/MembershipNotice";
+import { mountainRunningDraft } from "@/lib/trail-workouts";
 import { loadSectionWeek, sectionSessions, isCategory } from "@/lib/training-sections";
 import TrainingResults from "./TrainingResults";
 import { videoLink } from "@/lib/training-video";
@@ -80,6 +81,9 @@ export default function TrainingPlan({categoryFilter,showEditor=false}:{category
     if(dirtyResults){setMessage("Guarda primero los resultados pendientes antes de editar o duplicar entrenamientos.");return;}
     setCategoryChosen(true);setDraft(duplicate?copyDraft(draftFromSession(session)):draftFromSession(session));setEditingId(duplicate?null:session.id);setDate(duplicate?(day||week):session.session_date);setSaveError("");setMessage(duplicate?"Copia preparada. Elige la fecha y pulsa Guardar sesión.":"");scrollEditor();
   }
+  function useTrailWorkout(id:string){
+    if(busyRef.current||templateBusyRef.current||libraryWriting.current)return;if(dirtyResults){setMessage("Guarda primero los resultados pendientes.");return;}const value=mountainRunningDraft(id);if(!value)return;setDraft(value);setCategoryChosen(true);setSaveError("");setMessage("Estructura de carrera preparada. Ajusta el volumen, los tramos y la fecha antes de guardar.");
+  }
   function useTemplate(id:string){
     const starter=starterTemplates.find(t=>`starter:${t.id}`===id);const saved=templates.find(t=>t.id===id);
     const value=starter?.draft ?? (saved&&readStructure(saved.structure)?{title:saved.title,category:saved.category,structure:readStructure(saved.structure)!}:null);
@@ -145,7 +149,7 @@ export default function TrainingPlan({categoryFilter,showEditor=false}:{category
       <TrainingSessionContent {...session}/><TrainingResults client={supabase} session={session} canWrite={session.athlete_id===userId} onDirty={dirty=>setResultDirty(previous=>previous[session.id]===dirty?previous:{...previous,[session.id]:dirty})}/><div className={s.actions}><div className={s.bar}><button className={`${s.button} ${session.completed?s.secondary:""}`} aria-pressed={session.completed} disabled={locked} onClick={()=>void toggle(session)}>{session.completed?"Marcar como pendiente":"Marcar sesión completada"}</button><Link className={`${s.button} ${s.secondary}`} href={"/mensajes?"+new URLSearchParams({athlete:session.athlete_id,training:session.id}).toString()}>{admin?"Mensaje sobre esta sesión":"Consultar al entrenador"}</Link></div>
       {admin&&showEditor&&<div className={s.bar}><button className={`${s.button} ${s.secondary}`} disabled={locked} onClick={()=>{if(discard())editSession(session);}}>Editar</button><button className={`${s.button} ${s.secondary}`} disabled={locked} onClick={()=>{if(discard())editSession(session,true);}}>Duplicar sesión</button><button className={`${s.button} ${s.danger}`} disabled={locked} onClick={()=>void remove(session)}>Eliminar</button></div>}</div>
     </article>)}
-    {admin&&showEditor&&<TrainingComposer draft={draft} onChange={setDraft} categoryChosen={categoryChosen} onCategory={category=>{setDraft(previous=>({...previous,category}));setCategoryChosen(true);}} date={date} onDate={setDate} min={week} max={shift(week,6)} editing={!!editingId} busy={busy||libraryBusy} error={saveError} message={message} templates={templates} templateError={templateError} templateBusy={templateBusy} library={library} libraryBusy={libraryBusy} libraryNotice={libraryNotice} onLibrarySave={saveLibrary} onTemplate={useTemplate} onSaveTemplate={saveTemplate} onSave={add} onCancel={()=>{if(discard()){clearEditor();setMessage("");}}}/>}
+    {admin&&showEditor&&<TrainingComposer onTrailWorkout={useTrailWorkout} draft={draft} onChange={setDraft} categoryChosen={categoryChosen} onCategory={category=>{setDraft(previous=>({...previous,category}));setCategoryChosen(true);}} date={date} onDate={setDate} min={week} max={shift(week,6)} editing={!!editingId} busy={busy||libraryBusy} error={saveError} message={message} templates={templates} templateError={templateError} templateBusy={templateBusy} library={library} libraryBusy={libraryBusy} libraryNotice={libraryNotice} onLibrarySave={saveLibrary} onTemplate={useTemplate} onSaveTemplate={saveTemplate} onSave={add} onCancel={()=>{if(discard()){clearEditor();setMessage("");}}}/>}
     <nav className={s.bar} aria-label="Más opciones"><Link className={`${s.button} ${s.secondary}`} href="/dashboard">Mi panel</Link><Link className={`${s.button} ${s.secondary}`} href="/salidas">Salidas del club</Link><Link className={`${s.button} ${s.secondary}`} href="/progreso">Mi progreso</Link>{categoryFilter==="trail"&&<Link className={s.button} href="/seguimiento-trail">Registrar salida realizada</Link>}</nav>
   </div></main>;
 }
