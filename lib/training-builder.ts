@@ -1,14 +1,15 @@
+import { videoLink } from "./training-video.ts";
 export const categories = { fuerza: "Fuerza", trail: "Trail", movilidad: "Movilidad", descanso: "Descanso" } as const;
 export type Category = keyof typeof categories;
 export const stages = { warmup: "Calentamiento", main: "Parte principal", cooldown: "Vuelta a la calma" } as const;
 export type Stage = keyof typeof stages;
-export type Exercise = { id: string; name: string; sets: string; reps: string; weight: string; rest: string; duration: string; intensity: string; notes: string };
+export type Exercise = { id: string; name: string; sets: string; reps: string; weight: string; rest: string; duration: string; intensity: string; notes: string; videoUrl?: string };
 export type Structure = { version: 1; notes: string; targets: { distance: string; elevation: string; minutes: string; effort: string }; blocks: { stage: Stage; items: Exercise[] }[] };
 export type TrainingDraft = { category: Category; title: string; structure: Structure };
 export type TrainingSession = { id: string; athlete_id: string; session_date: string; category: string; title: string; details: string | null; completed: boolean; structure: unknown };
 export type TrainingTemplate = { id: string; name: string; category: Category; title: string; structure: unknown };
 const limits = { id: 80, name: 120, sets: 4, reps: 40, weight: 20, rest: 10, duration: 60, intensity: 80, notes: 1000 } as const;
-export const exerciseFields = Object.keys(limits) as (keyof Exercise)[];
+export const exerciseFields = Object.keys(limits) as (keyof typeof limits)[];
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 export function emptyStructure(): Structure {
   return { version: 1, notes: "", targets: { distance: "", elevation: "", minutes: "", effort: "" }, blocks: (Object.keys(stages) as Stage[]).map(stage => ({ stage, items: [] })) };
@@ -25,6 +26,7 @@ export function readStructure(value: unknown): Structure | null {
     seen.add(b.stage);
     const ids = new Set<string>();
     for (const i of b.items) {
+      if (object(i) && i.videoUrl !== undefined && (typeof i.videoUrl !== "string" || i.videoUrl.length > 500)) return null;
       if (!object(i) || !exerciseFields.every(key => typeof i[key] === "string" && (i[key] as string).length <= limits[key]) || !i.id || ids.has(i.id as string)) return null;
       ids.add(i.id as string);
     }
@@ -52,6 +54,7 @@ export function validateDraft(draft: TrainingDraft): string | null {
   const t = draft.structure.targets;
   if (!numberIn(t.distance,0,500) || !numberIn(t.elevation,0,30000,true) || !numberIn(t.minutes,1,10080,true) || !numberIn(t.effort,1,10,true)) return "Revisa la distancia, el desnivel, la duración o el esfuerzo objetivo.";
   for (const b of draft.structure.blocks) for (const [n, i] of b.items.entries()) {
+    if (i.videoUrl && videoLink(i.videoUrl) === null) return `${i.name || "Ejercicio"}: utiliza un enlace HTTPS de YouTube o Vimeo.`;
     if (!i.name.trim()) return `${stages[b.stage]}: escribe el nombre del ejercicio ${n + 1}.`;
     if (!numberIn(i.sets,1,30,true) || !numberIn(i.weight,0,1000) || !numberIn(i.rest,0,3600,true)) return `${i.name}: revisa las series, la carga o el descanso.`;
   }
@@ -59,7 +62,7 @@ export function validateDraft(draft: TrainingDraft): string | null {
 }
 export function plainPrescription(structure: Structure): string {
   const t = structure.targets;
-  return [structure.notes.trim(), [t.distance && `${t.distance} km`, t.elevation && `${t.elevation} m+`, t.minutes && `${t.minutes} min`, t.effort && `Esfuerzo ${t.effort}/10`].filter(Boolean).join(" · "), ...structure.blocks.filter(b => b.items.length).map(b => `${stages[b.stage]}\n` + b.items.map((i,n) => `${n+1}. ${i.name}${i.sets ? ` · ${i.sets} series` : ""}${i.reps ? ` × ${i.reps}` : ""}${i.weight ? ` · ${i.weight} kg` : ""}${i.rest ? ` · Descanso ${i.rest} s` : ""}${i.duration ? ` · ${i.duration}` : ""}${i.intensity ? ` · ${i.intensity}` : ""}${i.notes ? `\n${i.notes}` : ""}`).join("\n"))].filter(Boolean).join("\n\n");
+  return [structure.notes.trim(), [t.distance && `${t.distance} km`, t.elevation && `${t.elevation} m+`, t.minutes && `${t.minutes} min`, t.effort && `Esfuerzo ${t.effort}/10`].filter(Boolean).join(" · "), ...structure.blocks.filter(b => b.items.length).map(b => `${stages[b.stage]}\n` + b.items.map((i,n) => `${n+1}. ${i.name}${i.sets ? ` · ${i.sets} series` : ""}${i.reps ? ` × ${i.reps}` : ""}${i.weight ? ` · ${i.weight} kg` : ""}${i.rest ? ` · Descanso ${i.rest} s` : ""}${i.duration ? ` · ${i.duration}` : ""}${i.intensity ? ` · ${i.intensity}` : ""}${i.notes ? `\n${i.notes}` : ""}${i.videoUrl ? `\nVídeo: ${videoLink(i.videoUrl) || ""}` : ""}`).join("\n"))].filter(Boolean).join("\n\n");
 }
 function preset(title: string, category: Category, items: [Stage, string, string, string, string][]): TrainingDraft {
   const d = emptyDraft(category); d.title = title;
@@ -72,3 +75,10 @@ export const starterTemplates = [
   { id:"intervals", name:"Series de trail", draft:preset("Series de trail", "trail", [["warmup","Carrera suave y progresivos","","","15 min"],["main","Series con recuperación suave","6","3 min + 2 min recuperación",""],["cooldown","Carrera suave","","","10 min"]]) },
   { id:"mobility", name:"Movilidad", draft:preset("Movilidad y recuperación", "movilidad", [["warmup","Movimiento suave","","","3 min"],["main","Movilidad de tobillo y cadera","2","8 por lado",""],["cooldown","Respiración y relajación","","","3 min"]]) },
 ];
+
+export function normaliseDraft(draft: TrainingDraft): TrainingDraft {
+  const value=structuredClone(draft);
+  for(const block of value.structure.blocks)for(const item of block.items)if(item.videoUrl)item.videoUrl=videoLink(item.videoUrl)??item.videoUrl;
+  return value;
+}
+export type LibraryExercise = { id: string; name: string; category: Category; video_url: string; notes: string };
