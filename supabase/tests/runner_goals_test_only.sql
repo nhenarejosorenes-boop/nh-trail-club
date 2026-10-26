@@ -1,0 +1,58 @@
+-- TEST ONLY. All synthetic identities and preparation records are rolled back.
+create or replace function pg_temp.goals_suite() returns jsonb language plpgsql security invoker as $suite$
+declare a uuid:=gen_random_uuid();b uuid:=gen_random_uuid();coach uuid:=gen_random_uuid();sub uuid;ga uuid;gb uuid;p1 uuid;p2 uuid;review uuid;session uuid;legacy uuid;n int;denied boolean;checks jsonb:='{}';
+begin
+ if not exists(select 1 from pg_proc where proname='nh_test_paid') then raise exception 'TEST schema required';end if;
+ begin
+  insert into auth.users(id,aud,role) values(a,'authenticated','authenticated'),(b,'authenticated','authenticated'),(coach,'authenticated','authenticated');
+  insert into public.profiles(id,role,full_name) values(a,'athlete','Goal fixture A'),(b,'athlete','Goal fixture basic'),(coach,'admin','Goal fixture coach');
+  insert into public.club_subscription_requests(user_id,plan,status) values(a,'plus','approved') returning id into sub;
+  insert into public.club_subscription_monthly_dues(subscription_id,period_month,amount_eur,due_date,status) values(sub,date_trunc('month',current_date)::date,60,current_date,'paid');
+  insert into public.club_subscription_requests(user_id,plan,status) values(b,'basic','approved') returning id into sub;
+  insert into public.club_subscription_monthly_dues(subscription_id,period_month,amount_eur,due_date,status) values(sub,date_trunc('month',current_date)::date,10,current_date,'paid');
+  perform set_config('request.jwt.claims',json_build_object('sub',coach,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  insert into public.runner_goals(athlete_id,title,goal_type,priority,starts_on,target_date,available_days,created_by,revision) values(a,'Trail fixture','race','finish',current_date,current_date+100,3,a,500) returning id into ga;
+  insert into public.runner_goals(athlete_id,title,goal_type,priority,starts_on,target_date,available_days) values(b,'Basic fixture','consistency','consistency',current_date,current_date+100,2) returning id into gb;
+  checks:=checks||jsonb_build_object('coach_creates_goals',(select count(*) from public.runner_goals where id in(ga,gb))=2,'server_author_and_revision',(select created_by=coach and revision=1 from public.runner_goals where id=ga));
+  denied:=false;begin insert into public.runner_goals(athlete_id,title,goal_type,priority,starts_on,target_date,available_days) values(a,'Duplicate active','race','finish',current_date,current_date+100,3);exception when unique_violation then denied:=true;end;checks:=checks||jsonb_build_object('one_active_goal',denied);
+  insert into public.runner_goal_phases(goal_id,phase_type,starts_on,ends_on,focus) values(ga,'base',current_date,current_date+20,'Continuidad') returning id into p1;
+  insert into public.runner_goal_phases(goal_id,phase_type,starts_on,ends_on,focus) values(ga,'development',current_date+21,current_date+40,'Desarrollo') returning id into p2;
+  checks:=checks||jsonb_build_object('adjacent_phases_allowed',(select count(*) from public.runner_goal_phases where goal_id=ga)=2);
+  denied:=false;begin insert into public.runner_goal_phases(goal_id,phase_type,starts_on,ends_on,focus) values(ga,'specific',current_date+10,current_date+25,'Overlap');exception when sqlstate '22023' then denied:=true;end;checks:=checks||jsonb_build_object('overlap_denied',denied);
+  insert into public.runner_goal_reviews(goal_id,week_start,summary,decision,next_focus) values(ga,date_trunc('week',current_date)::date,'Buena continuidad','maintain','Trabajo de subidas') returning id into review;
+  update public.runner_goal_reviews set summary='Balance actualizado',revision=900 where id=review and revision=1;
+  checks:=checks||jsonb_build_object('review_revision_server',(select revision=2 from public.runner_goal_reviews where id=review));
+  update public.runner_goal_reviews set summary='Stale' where id=review and revision=1;get diagnostics n=row_count;checks:=checks||jsonb_build_object('stale_review_no_overwrite',n=0);
+  insert into public.weekly_training_plan(athlete_id,session_date,category,title,goal_id,purpose) values(a,current_date,'trail','Linked fixture',ga,'Mejorar continuidad en subida') returning id into session;
+  insert into public.weekly_training_plan(athlete_id,session_date,category,title) values(a,current_date,'fuerza','Legacy fixture') returning id into legacy;
+  checks:=checks||jsonb_build_object('purpose_roundtrip',(select goal_id=ga and purpose='Mejorar continuidad en subida' from public.weekly_training_plan where id=session),'legacy_unlinked_kept',(select goal_id is null from public.weekly_training_plan where id=legacy));
+  denied:=false;begin update public.weekly_training_plan set goal_id=gb where id=session;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('foreign_goal_link_denied',denied);
+  denied:=false;begin update public.weekly_training_plan set purpose=' ' where id=session;exception when check_violation then denied:=true;end;checks:=checks||jsonb_build_object('linked_purpose_required',denied);
+  denied:=false;begin update public.runner_goals set athlete_id=b where id=ga;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('goal_owner_immutable',denied);
+  denied:=false;begin update public.runner_goal_phases set goal_id=gb where id=p1;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('phase_goal_immutable',denied);
+  update public.runner_goal_phases set active=false where id=p2;checks:=checks||jsonb_build_object('phase_archive_reversible',(select not active from public.runner_goal_phases where id=p2));
+  update public.runner_goal_phases set active=true where id=p2;checks:=checks||jsonb_build_object('phase_restore',(select active from public.runner_goal_phases where id=p2));
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims',json_build_object('sub',a,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  checks:=checks||jsonb_build_object('client_own_goal_visible',(select count(*) from public.runner_goals where id=ga)=1,'foreign_goal_hidden',(select count(*) from public.runner_goals where id=gb)=0,'client_own_phases',(select count(*) from public.runner_goal_phases where goal_id=ga)=2,'client_own_review',(select count(*) from public.runner_goal_reviews where id=review)=1);
+  update public.runner_goals set title='Client override' where id=ga;get diagnostics n=row_count;checks:=checks||jsonb_build_object('client_cannot_edit_goal',n=0);
+  update public.runner_goal_phases set focus='Client override' where id=p1;get diagnostics n=row_count;checks:=checks||jsonb_build_object('client_cannot_edit_stage',n=0);
+  update public.runner_goal_reviews set summary='Client override' where id=review;get diagnostics n=row_count;checks:=checks||jsonb_build_object('client_cannot_edit_coach_review',n=0);
+  denied:=false;begin insert into public.runner_goals(athlete_id,title,goal_type,priority,starts_on,target_date,available_days) values(a,'Self create','race','finish',current_date,current_date+50,3);exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('client_cannot_create_goal',denied);
+  perform public.mark_training_completed(session,true);checks:=checks||jsonb_build_object('completion_rpc_still_works',(select completed and goal_id=ga from public.weekly_training_plan where id=session));
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims',json_build_object('sub',b,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  checks:=checks||jsonb_build_object('basic_own_goal_hidden',(select count(*) from public.runner_goals where id=gb)=0,'basic_foreign_stages_hidden',(select count(*) from public.runner_goal_phases where goal_id=ga)=0);
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims',json_build_object('sub',coach,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  update public.runner_goals set status='archived' where id=ga;
+  checks:=checks||jsonb_build_object('archiving_preserves_session_link',(select goal_id=ga from public.weekly_training_plan where id=session));
+  denied:=false;begin delete from public.runner_goals where id=ga;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('direct_delete_not_granted',denied);
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims','{}',true);perform set_config('role','anon',true);
+  denied:=false;begin perform 1 from public.runner_goals;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('anon_goals_denied',denied);
+  denied:=false;begin perform 1 from public.runner_goal_phases;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('anon_phases_denied',denied);
+  denied:=false;begin perform 1 from public.runner_goal_reviews;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('anon_reviews_denied',denied);
+  perform set_config('role','postgres',true);raise exception using errcode='P0002',message='Rollback goal fixtures';
+ exception when no_data_found then null;
+ end;
+ return jsonb_build_object('checks',checks,'passed',(select count(*) from jsonb_each(checks) where value='true'::jsonb),'failed',(select count(*) from jsonb_each(checks) where value<>'true'::jsonb),'remaining_users',(select count(*) from auth.users where id in(a,b,coach)),'remaining_goals',(select count(*) from public.runner_goals where id in(ga,gb)));
+end;
+$suite$;
+select pg_temp.goals_suite();
