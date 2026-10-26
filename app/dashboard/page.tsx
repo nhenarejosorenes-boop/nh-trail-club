@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import styles from "./dashboard.module.css";
+import MembershipNotice from "@/components/MembershipNotice";
+import { loadMembershipAccess } from "@/lib/membership-client";
+import { membershipLabels, type MembershipAccess } from "@/lib/membership-model";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
 type Training = { id:string; session_date:string; category:string; title:string; details:string; completed:boolean };
@@ -22,8 +25,7 @@ export default function DashboardPage() {
  const [registered,setRegistered]=useState<string[]>([]);
  const [menu,setMenu]=useState(false);
  const [paymentAlert,setPaymentAlert]=useState<PaymentAlert|null>(null);
- const [hasMembership,setHasMembership]=useState<boolean|null>(null);
- const [access,setAccess]=useState<"checking"|"admin"|"active"|"pending"|"unpaid"|"none"|"error">("checking");
+ const [membership,setMembership]=useState<MembershipAccess|null>(null);
  useEffect(()=>{let active=true;async function load(){
   try {
    const {data:auth,error:authError}=await supabase.auth.getUser();
@@ -40,6 +42,9 @@ export default function DashboardPage() {
    if(profile.error)throw profile.error;
    setName(profile.data?.full_name||auth.user.email?.split("@")[0]||"deportista");
    setRole(profile.data?.role||"athlete");
+   const access=await loadMembershipAccess(supabase,uid,profile.data?.role||"athlete");
+   if(!active)return;
+   setMembership(access);
    setTrainings((plan.data??[]) as Training[]);
    setOutings((activities.data??[]) as Outing[]);
    setRegistered((registrations.data??[]).map(r=>r.activity_id));
@@ -58,23 +63,6 @@ export default function DashboardPage() {
      }
     }else setPaymentAlert(null);
    }
-   const {data:memberRequests,error:memberError}=await supabase.from("club_subscription_requests").select("id").eq("user_id",uid).in("status",["pending","approved"]).limit(1);
-   if(active&&!memberError)setHasMembership((memberRequests??[]).length>0);
-   // Access is based on an approved membership AND a manually verified payment for the current month.
-   // This UI guard is not a substitute for server-side RLS authorization on protected data.
-   if(profile.data?.role==="admin"){setAccess("admin");}
-   else{
-    const {data:membership,error:me}=await supabase.from("club_subscription_requests").select("id,status").eq("user_id",uid).in("status",["approved","pending"]).order("created_at",{ascending:false});
-    if(me){setAccess("error");}
-    else{
-     const approved=(membership??[]).find(m=>m.status==="approved");
-     if(!approved)setAccess((membership??[]).some(m=>m.status==="pending")?"pending":"none");
-     else{
-      const {data:payment,error:payError}=await supabase.from("club_subscription_monthly_dues").select("id").eq("subscription_id",approved.id).eq("period_month",localDate(new Date()).slice(0,7)+"-01").eq("status","paid").limit(1);
-      setAccess(payError?"error":(payment??[]).length>0?"active":"unpaid");
-     }
-    }
-   }
    const failures=[plan.error,activities.error,registrations.error].filter(Boolean);
    if(failures.length)setError("Algunos datos no se pudieron cargar. Prueba a actualizar la página.");
   }catch{if(active)setError("No se pudo cargar el panel. Comprueba tu conexión e inténtalo de nuevo.");}
@@ -82,11 +70,7 @@ export default function DashboardPage() {
  }void load();return()=>{active=false};},[]);
  async function logout(){const {error:e}=await supabase.auth.signOut();if(e)setError("No se pudo cerrar la sesión.");else window.location.replace("/login");}
  const completed=trainings.filter(s=>s.completed).length;
- if(!loading&&access!=="active"&&access!=="admin"){
-  const heading=access==="pending"?"Solicitud pendiente de aprobación":access==="unpaid"?"Cuota mensual pendiente de verificación":access==="none"?"Selecciona tu suscripción obligatoria":"No se pudo verificar tu acceso";
-  const body=access==="pending"?"El club debe revisar tu solicitud antes de activar el acceso.":access==="unpaid"?"Para acceder al panel deportivo, el club debe confirmar el pago de la cuota correspondiente al mes actual. Si ya has abonado la cuota, contacta con administración.":access==="none"?"Elige Básica (10 €), PLUS (60 €) o PLUS Performance (100 €) para solicitar el alta.":"Comprueba tu conexión e inténtalo de nuevo. No se ha modificado tu suscripción.";
-  return <main style={{minHeight:"100vh",background:"#101113",color:"#fff",padding:"64px 20px",fontFamily:"Arial,sans-serif"}}><section style={{maxWidth:620,margin:"auto",background:"#222427",padding:32,borderRadius:16,border:"1px solid #ff922f"}}><p style={{color:"#ff922f",fontWeight:800}}>NH / CLUB TRAIL RUNNING ALICANTE</p><h1>{heading}</h1><p style={{lineHeight:1.7,color:"#ddd"}}>{body}</p><div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:22}}><Link href="/suscripciones" style={{background:"#ff922f",color:"#111",padding:13,borderRadius:9,fontWeight:800,textDecoration:"none"}}>Mis modalidades</Link><Link href="/mis-cuotas" style={{color:"#ff922f",padding:13}}>Mis cuotas y avisos</Link><button onClick={()=>window.location.reload()} style={{padding:13,background:"#333",border:"1px solid #666",color:"#fff",borderRadius:9}}>Comprobar de nuevo</button></div></section></main>;
- }
+ if(!loading&&!membership?.club)return <MembershipNotice access={membership} error={!membership} />;
 
  const navigation=[{icon:"⌂",label:"Inicio",href:"/dashboard"},{icon:"◫",label:"Plan semanal",href:"/entrenamientos/plan"},{icon:"↗",label:"Entrenamientos",href:"/entrenamientos"},{icon:"△",label:"Salidas del club",href:"/salidas"},{icon:"▥",label:"Mi progreso",href:"/progreso"},{icon:"★",label:"PLUS / Performance",href:"/suscripciones"},{icon:"◷",label:"Mis cuotas y avisos",href:"/mis-cuotas"},...(role==="admin"?[{icon:"♙",label:"Deportistas",href:"/deportistas"},{icon:"▤",label:"Panel entrenador",href:"/entrenador/seguimiento"},{icon:"★",label:"Gestión PLUS",href:"/admin/suscripciones"},{icon:"⚙",label:"Administración",href:"/admin"}]:[])];
  return <main className={styles.shell}>
@@ -104,27 +88,27 @@ export default function DashboardPage() {
    </header>
    <div className={styles.inner}>
     {error&&<p className={styles.error} role="alert">{error}</p>}
-    {hasMembership===false&&<section role="status" style={{background:"#2a211b",border:"1px solid #ff922f",borderRadius:12,padding:"17px 20px",marginBottom:20}}><strong style={{color:"#ffad5c"}}>Suscripción obligatoria del club</strong><p>Para formar parte de NH Trail Club debes elegir una modalidad mensual: Básica 10 €, PLUS 60 € o PLUS Performance 100 €. Elige tu programa para solicitar el alta.</p><Link href="/suscripciones" style={{color:"#ffad5c",fontWeight:800}}>Elegir mi modalidad →</Link></section>}
+    {membership?.plan&&<p style={{color:"#ffad5c",fontWeight:800}}>Mi modalidad: {membershipLabels[membership.plan]}</p>}
     {paymentAlert&&paymentAlert.count>0&&<section role="status" style={{background:"#2a211b",border:"1px solid #f18b35",borderLeft:"5px solid #f18b35",borderRadius:12,padding:"17px 20px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",gap:14,flexWrap:"wrap"}}>
-     <div><strong style={{color:"#ffae63",fontSize:18}}>◷ Avisos de cuotas PLUS ({paymentAlert.count})</strong><p style={{margin:"7px 0 0",color:"#e7d8ca"}}>{paymentAlert.overdue>0?paymentAlert.overdue+" vencida(s) · ":""}{paymentAlert.upcoming>0?paymentAlert.upcoming+" próxima(s) a vencer · ":""}{paymentAlert.amount.toLocaleString("es-ES",{style:"currency",currency:"EUR"})} en cuotas registradas con aviso</p></div>
+     <div><strong style={{color:"#ffae63",fontSize:18}}>◷ Avisos de cuotas del club ({paymentAlert.count})</strong><p style={{margin:"7px 0 0",color:"#e7d8ca"}}>{paymentAlert.overdue>0?paymentAlert.overdue+" vencida(s) · ":""}{paymentAlert.upcoming>0?paymentAlert.upcoming+" próxima(s) a vencer · ":""}{paymentAlert.amount.toLocaleString("es-ES",{style:"currency",currency:"EUR"})} en cuotas registradas con aviso</p></div>
      <Link href="/mis-cuotas" style={{background:"#ff922f",color:"#111",fontWeight:800,textDecoration:"none",padding:"11px 15px",borderRadius:9}}>Consultar mis cuotas →</Link>
     </section>}
     <div className={styles.stats}>
-     <div className={styles.stat}><span className={styles.statIcon}>♢</span><div><small>Sesiones esta semana</small><strong>{loading?"—":trainings.length}</strong><span>Planificadas</span></div></div>
-     <div className={styles.stat}><span className={styles.statIcon}>✓</span><div><small>Sesiones completadas</small><strong>{loading?"—":completed+" / "+trainings.length}</strong><span>{trainings.length?Math.round(completed/trainings.length*100)+"% del plan":"Sin sesiones aún"}</span></div></div>
+     <div className={styles.stat}><span className={styles.statIcon}>♢</span><div><small>Sesiones esta semana</small><strong>{loading?"—":membership?.premium?trainings.length:"PLUS"}</strong><span>{membership?.premium?"Planificadas":"Plan individual"}</span></div></div>
+     <div className={styles.stat}><span className={styles.statIcon}>✓</span><div><small>Sesiones completadas</small><strong>{loading?"—":membership?.premium?completed+" / "+trainings.length:"PLUS"}</strong><span>{membership?.premium?(trainings.length?Math.round(completed/trainings.length*100)+"% del plan":"Sin sesiones aún"):"Seguimiento individual"}</span></div></div>
      <div className={styles.stat}><span className={styles.statIcon}>△</span><div><small>Próximas salidas</small><strong>{loading?"—":outings.length}</strong><span>Disponibles en el club</span></div></div>
      <div className={styles.stat}><span className={styles.statIcon}>↗</span><div><small>Mis inscripciones</small><strong>{loading?"—":outings.filter(o=>registered.includes(o.id)).length}</strong><span>Entre las próximas salidas</span></div></div>
     </div>
     <div className={styles.columns}>
      <section className={styles.panel}><div className={styles.panelHeading}><h2><span>▣</span> Plan semanal</h2><Link href="/entrenamientos/plan">Ver semana completa →</Link></div>
-      {loading?<p className={styles.muted}>Cargando entrenamientos...</p>:trainings.length?trainings.map(s=><div key={s.id} className={styles.training}><div className={styles.dateTile}><small>{fmt(s.session_date+"T12:00:00",{weekday:"short"}).toUpperCase()}</small><strong>{s.session_date.slice(-2)}</strong></div><div className={styles.trainingText}><strong>{s.title}</strong><span>{s.category.toUpperCase()}{s.details?" · "+s.details:""}</span></div><span className={s.completed?styles.done:styles.pending} aria-label={s.completed?"Completada":"Pendiente"}>{s.completed?"✓":"○"}</span></div>):<div className={styles.empty}>Todavía no tienes sesiones programadas esta semana.<p><Link href="/entrenamientos/plan">Consultar planificación →</Link></p></div>}
+      {loading?<p className={styles.muted}>Cargando entrenamientos...</p>:!membership?.premium?<div className={styles.empty}>La planificación individual está incluida en PLUS y PLUS Performance. Tu modalidad Básica incluye las salidas del club.<p><Link href="/suscripciones">Ver modalidades PLUS →</Link></p></div>:trainings.length?trainings.map(s=><div key={s.id} className={styles.training}><div className={styles.dateTile}><small>{fmt(s.session_date+"T12:00:00",{weekday:"short"}).toUpperCase()}</small><strong>{s.session_date.slice(-2)}</strong></div><div className={styles.trainingText}><strong>{s.title}</strong><span>{s.category.toUpperCase()}{s.details?" · "+s.details:""}</span></div><span className={s.completed?styles.done:styles.pending} aria-label={s.completed?"Completada":"Pendiente"}>{s.completed?"✓":"○"}</span></div>):<div className={styles.empty}>Todavía no tienes sesiones programadas esta semana.<p><Link href="/entrenamientos/plan">Consultar planificación →</Link></p></div>}
      </section>
      <section className={styles.panel}><div className={styles.panelHeading}><h2><span>△</span> Próximas salidas</h2><Link href="/salidas">Ver todas →</Link></div>
       {loading?<p className={styles.muted}>Cargando salidas...</p>:outings.length?outings.map(o=><div key={o.id} className={styles.outing}><div className={styles.outingIcon}>⛰</div><div className={styles.outingText}><strong>{o.title}</strong><span>{fmt(o.starts_at,{day:"numeric",month:"long",year:"numeric"})}</span><small>{o.location||"Lugar por confirmar"}</small></div><Link href="/salidas" className={styles.outingAction}>{registered.includes(o.id)?"Inscrito ✓":"Ver detalles"}</Link></div>):<div className={styles.empty}>No hay salidas próximas publicadas.<p><Link href="/salidas">Consultar salidas →</Link></p></div>}
      </section>
     </div>
     <div className={styles.bottomColumns}>
-     <section className={styles.panel}><div className={styles.panelHeading}><h2><span>▥</span> Mi progreso</h2><Link href="/progreso">Ver progreso →</Link></div><div className={styles.progress}><div><small>Sesiones completadas esta semana</small><strong>{completed} <span>de {trainings.length}</span></strong><div className={styles.track}><div style={{width:(trainings.length?completed/trainings.length*100:0)+"%"}}/></div></div><div><small>Sesiones pendientes</small><strong>{trainings.length-completed}</strong><p>Datos de tu planificación real</p></div></div></section>
+     <section className={styles.panel}><div className={styles.panelHeading}><h2><span>▥</span> Mi progreso</h2><Link href="/progreso">Ver progreso →</Link></div>{membership&&!membership.premium?<p className={styles.muted}>El seguimiento individual está incluido en PLUS y PLUS Performance. <Link href="/suscripciones">Consultar modalidades →</Link></p>:<div className={styles.progress}><div><small>Sesiones completadas esta semana</small><strong>{completed} <span>de {trainings.length}</span></strong><div className={styles.track}><div style={{width:(trainings.length?completed/trainings.length*100:0)+"%"}}/></div></div><div><small>Sesiones pendientes</small><strong>{trainings.length-completed}</strong><p>Datos de tu planificación real</p></div></div>}</section>
      <section className={styles.panel}><div className={styles.panelHeading}><h2>Accesos rápidos</h2></div><div className={styles.quick}>{navigation.filter(n=>n.href!=="/dashboard").slice(0,6).map(n=><Link href={n.href} key={n.href}><span>{n.icon}</span>{n.label}</Link>)}</div></section>
     </div>
     <footer className={styles.footer}>NH TRAINING CONCEPT · Tu meta, mi desafío</footer>

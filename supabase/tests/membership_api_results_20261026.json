@@ -1,0 +1,771 @@
+{
+  "scope": "TEST Auth and REST API; browser UI not tested",
+  "total": 133,
+  "passed": 133,
+  "failed": [],
+  "checks": [
+    {
+      "case": "basic",
+      "check": "password_login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "session_identity",
+      "pass": true
+    },
+    {
+      "case": "basic",
+      "check": "server_verifies_token",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "weekly_training_plan_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "premium_plan_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "basic",
+      "check": "workouts_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "premium_workout_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "basic",
+      "check": "training_sessions_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "premium_exercise_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "basic",
+      "check": "club_subscription_requests_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "subscriptions_isolated",
+      "pass": true
+    },
+    {
+      "case": "basic",
+      "check": "club_subscription_monthly_dues_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "dues_isolated",
+      "pass": true
+    },
+    {
+      "case": "basic",
+      "check": "club_activities_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "outing_requires_payment",
+      "pass": true
+    },
+    {
+      "case": "basic",
+      "check": "completion_rpc_requires_premium",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "basic",
+      "check": "completion_rpc_enforces_ownership",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "basic",
+      "check": "completion_rpc_rejects_null_state",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "case": "basic",
+      "check": "internal_helper_not_public_rpc",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "case": "basic",
+      "check": "self_promotion_denied",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "self_payment_denied",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "registration_requires_payment",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "case": "basic",
+      "check": "can_cancel_own_registration",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "foreign_registration_denied",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "basic",
+      "check": "booking_requires_payment",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "case": "basic",
+      "check": "can_cancel_own_booking",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "basic",
+      "check": "logout",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "case": "basic",
+      "check": "refresh_revoked_after_logout",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "case": "plus",
+      "check": "password_login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "session_identity",
+      "pass": true
+    },
+    {
+      "case": "plus",
+      "check": "server_verifies_token",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "weekly_training_plan_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "premium_plan_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "plus",
+      "check": "workouts_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "premium_workout_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "plus",
+      "check": "training_sessions_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "premium_exercise_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "plus",
+      "check": "club_subscription_requests_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "subscriptions_isolated",
+      "pass": true
+    },
+    {
+      "case": "plus",
+      "check": "club_subscription_monthly_dues_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "dues_isolated",
+      "pass": true
+    },
+    {
+      "case": "plus",
+      "check": "club_activities_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "outing_requires_payment",
+      "pass": true
+    },
+    {
+      "case": "plus",
+      "check": "completion_rpc_requires_premium",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "case": "plus",
+      "check": "completion_rpc_enforces_ownership",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "plus",
+      "check": "completion_rpc_rejects_null_state",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "case": "plus",
+      "check": "internal_helper_not_public_rpc",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "case": "plus",
+      "check": "self_promotion_denied",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "self_payment_denied",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "registration_requires_payment",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "case": "plus",
+      "check": "can_cancel_own_registration",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "foreign_registration_denied",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "plus",
+      "check": "booking_requires_payment",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "case": "plus",
+      "check": "can_cancel_own_booking",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "plus",
+      "check": "logout",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "case": "plus",
+      "check": "refresh_revoked_after_logout",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "case": "performance",
+      "check": "password_login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "session_identity",
+      "pass": true
+    },
+    {
+      "case": "performance",
+      "check": "server_verifies_token",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "weekly_training_plan_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "premium_plan_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "performance",
+      "check": "workouts_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "premium_workout_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "performance",
+      "check": "training_sessions_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "premium_exercise_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "performance",
+      "check": "club_subscription_requests_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "subscriptions_isolated",
+      "pass": true
+    },
+    {
+      "case": "performance",
+      "check": "club_subscription_monthly_dues_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "dues_isolated",
+      "pass": true
+    },
+    {
+      "case": "performance",
+      "check": "club_activities_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "outing_requires_payment",
+      "pass": true
+    },
+    {
+      "case": "performance",
+      "check": "completion_rpc_requires_premium",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "case": "performance",
+      "check": "completion_rpc_enforces_ownership",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "performance",
+      "check": "completion_rpc_rejects_null_state",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "case": "performance",
+      "check": "internal_helper_not_public_rpc",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "case": "performance",
+      "check": "self_promotion_denied",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "self_payment_denied",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "registration_requires_payment",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "case": "performance",
+      "check": "can_cancel_own_registration",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "foreign_registration_denied",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "performance",
+      "check": "booking_requires_payment",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "case": "performance",
+      "check": "can_cancel_own_booking",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "performance",
+      "check": "logout",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "case": "performance",
+      "check": "refresh_revoked_after_logout",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "case": "unpaid",
+      "check": "password_login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "unpaid",
+      "check": "session_identity",
+      "pass": true
+    },
+    {
+      "case": "unpaid",
+      "check": "server_verifies_token",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "unpaid",
+      "check": "weekly_training_plan_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "unpaid",
+      "check": "premium_plan_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "unpaid",
+      "check": "workouts_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "unpaid",
+      "check": "premium_workout_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "unpaid",
+      "check": "training_sessions_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "unpaid",
+      "check": "premium_exercise_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "unpaid",
+      "check": "club_subscription_requests_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "unpaid",
+      "check": "subscriptions_isolated",
+      "pass": true
+    },
+    {
+      "case": "unpaid",
+      "check": "club_subscription_monthly_dues_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "unpaid",
+      "check": "dues_isolated",
+      "pass": true
+    },
+    {
+      "case": "unpaid",
+      "check": "club_activities_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "unpaid",
+      "check": "outing_requires_payment",
+      "pass": true
+    },
+    {
+      "case": "unpaid",
+      "check": "completion_rpc_requires_premium",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "unpaid",
+      "check": "completion_rpc_enforces_ownership",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "unpaid",
+      "check": "completion_rpc_rejects_null_state",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "case": "unpaid",
+      "check": "internal_helper_not_public_rpc",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "case": "unpaid",
+      "check": "self_promotion_denied",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "unpaid",
+      "check": "self_payment_denied",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "unpaid",
+      "check": "registration_requires_payment",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "unpaid",
+      "check": "foreign_registration_denied",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "unpaid",
+      "check": "booking_requires_payment",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "case": "unpaid",
+      "check": "logout",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "case": "unpaid",
+      "check": "refresh_revoked_after_logout",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "case": "admin",
+      "check": "password_login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "admin",
+      "check": "session_identity",
+      "pass": true
+    },
+    {
+      "case": "admin",
+      "check": "server_verifies_token",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "admin",
+      "check": "weekly_training_plan_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "admin",
+      "check": "premium_plan_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "admin",
+      "check": "workouts_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "admin",
+      "check": "premium_workout_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "admin",
+      "check": "training_sessions_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "admin",
+      "check": "premium_exercise_and_isolation",
+      "pass": true
+    },
+    {
+      "case": "admin",
+      "check": "club_subscription_requests_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "admin",
+      "check": "subscriptions_isolated",
+      "pass": true
+    },
+    {
+      "case": "admin",
+      "check": "club_subscription_monthly_dues_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "admin",
+      "check": "dues_isolated",
+      "pass": true
+    },
+    {
+      "case": "admin",
+      "check": "club_activities_http",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "admin",
+      "check": "outing_requires_payment",
+      "pass": true
+    },
+    {
+      "case": "admin",
+      "check": "completion_rpc_requires_premium",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "case": "admin",
+      "check": "completion_rpc_enforces_ownership",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "case": "admin",
+      "check": "completion_rpc_rejects_null_state",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "case": "admin",
+      "check": "internal_helper_not_public_rpc",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "case": "admin",
+      "check": "logout",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "case": "admin",
+      "check": "refresh_revoked_after_logout",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "case": "anon",
+      "check": "plans_hidden",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "case": "anon",
+      "check": "completion_rpc_denied",
+      "pass": true,
+      "http": 401
+    }
+  ]
+}
