@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import MembershipNotice from "@/components/MembershipNotice";
 import { loadMembershipAccess } from "@/lib/membership-client";
 import type { MembershipAccess } from "@/lib/membership-model";
+import { loadCoachAthletes, plannerContext } from "@/lib/coach-tracking";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
 type Session = { id: string; athlete_id: string; session_date: string; category: string; title: string; details: string; completed: boolean };
@@ -67,14 +68,19 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
       if (!active) return;
       setMembership(access);
       if (!access.premium) { setLoading(false); return; }
-      setSelected(auth.user.id);
+      let selectedId = auth.user.id;
       if (access.state === "admin") {
         setAdmin(true);
-        const { data, error: athletesError } = await supabase.from("deportistas").select("user_id,nombre").not("user_id","is",null).order("nombre");
+        const data = await loadCoachAthletes(supabase);
         if (!active) return;
-        if (athletesError) setError(athletesError.message);
-        else setAthletes((data ?? []) as Athlete[]);
+        const linked = data.filter(a => a.user_id !== null);
+        setAthletes(linked);
+        const params = new URLSearchParams(window.location.search);
+        const context = plannerContext(linked, auth.user.id, params.get("athlete"), params.get("date"));
+        selectedId = context.athleteId;
+        if (context.week) { setWeek(context.week); setDate(context.week); }
       }
+      setSelected(selectedId);
       setLoading(false);
       } catch {
         if (active) { setAccessError(true); setLoading(false); }
