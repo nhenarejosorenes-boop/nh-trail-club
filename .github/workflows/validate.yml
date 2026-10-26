@@ -18,8 +18,8 @@ jobs:
           node-version: '22'
       - name: Instalar dependencias
         run: npm ci --no-audit --no-fund
-      - name: Comprobar estados de acceso por modalidad y pago
-        run: node --experimental-strip-types --test supabase/tests/membership_ui.test.mjs
+      - name: Comprobar acceso y métricas de entrenamiento
+        run: node --experimental-strip-types --test supabase/tests/*.test.mjs
       - name: Comprobar TypeScript
         run: npx tsc --noEmit
       - name: Compilar Next.js
