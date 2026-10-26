@@ -1,0 +1,57 @@
+-- TEST ONLY: all temporary identities, prescriptions and results are rolled back.
+create or replace function pg_temp.results_suite() returns jsonb language plpgsql security invoker as $suite$
+declare a uuid:=gen_random_uuid();b uuid:=gen_random_uuid();coach uuid:=gen_random_uuid();basic uuid:=gen_random_uuid();sub uuid;sid uuid;other uuid;legacy uuid;basic_sid uuid;lib uuid;n int;denied boolean;checks jsonb:='{}';
+shape jsonb:='{"version":1,"notes":"Original prescription","targets":{"distance":"","elevation":"","minutes":"","effort":""},"blocks":[{"stage":"warmup","items":[]},{"stage":"main","items":[{"id":"squat","name":"Sentadilla","sets":"3","reps":"8","weight":"20","rest":"60","duration":"","intensity":"","notes":"","videoUrl":"https://www.youtube.com/watch?v=abcdefghijk"}]},{"stage":"cooldown","items":[]}]}';
+payload jsonb:='[{"stage":"main","id":"squat","completed":true,"sets":"3","reps":"8","weight":"22.5","notes":"Bien"}]';
+begin
+ if not exists(select 1 from pg_proc where proname='nh_test_paid') then raise exception 'TEST only';end if;
+ begin
+  insert into auth.users(id,aud,role) values(a,'authenticated','authenticated'),(b,'authenticated','authenticated'),(coach,'authenticated','authenticated'),(basic,'authenticated','authenticated');
+  insert into public.profiles(id,role,full_name) values(a,'athlete','Results fixture A'),(b,'athlete','Results fixture B'),(coach,'admin','Results fixture coach'),(basic,'athlete','Results fixture basic');
+  insert into public.club_subscription_requests(user_id,plan,status) values(a,'plus','approved') returning id into sub;
+  insert into public.club_subscription_monthly_dues(subscription_id,period_month,amount_eur,due_date,status) values(sub,date_trunc('month',current_date)::date,60,current_date,'paid');
+  insert into public.club_subscription_requests(user_id,plan,status) values(basic,'basic','approved') returning id into sub;
+  insert into public.club_subscription_monthly_dues(subscription_id,period_month,amount_eur,due_date,status) values(sub,date_trunc('month',current_date)::date,10,current_date,'paid');
+  insert into public.weekly_training_plan(athlete_id,session_date,category,title,structure) values(a,current_date,'fuerza','Results fixture',shape) returning id into sid;
+  insert into public.weekly_training_plan(athlete_id,session_date,category,title,structure) values(b,current_date,'fuerza','Other fixture',shape) returning id into other;
+  insert into public.weekly_training_plan(athlete_id,session_date,category,title) values(a,current_date,'trail','Legacy fixture') returning id into legacy;
+  insert into public.weekly_training_plan(athlete_id,session_date,category,title,structure) values(basic,current_date,'fuerza','Basic fixture',shape) returning id into basic_sid;
+  checks:=checks||jsonb_build_object('valid_video_structure',public.training_structure_valid(shape),'unsafe_video_denied',not public.training_structure_valid(jsonb_set(shape,'{blocks,1,items,0,videoUrl}','"javascript:bad"')),'valid_entries',public.training_result_entries_valid(payload,shape),'foreign_exercise_denied',not public.training_result_entries_valid(jsonb_set(payload,'{0,id}','"foreign"'),shape),'missing_entry_denied',not public.training_result_entries_valid('[]',shape),'legacy_empty_results',public.training_result_entries_valid('[]',null),'invalid_weight_denied',not public.training_result_entries_valid(jsonb_set(payload,'{0,weight}','"-1"'),shape),'invalid_completed_denied',not public.training_result_entries_valid(jsonb_set(payload,'{0,completed}','"true"'),shape));
+  perform set_config('request.jwt.claims',json_build_object('sub',coach,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  insert into public.training_exercise_library(name,category,video_url,notes) values('Fixture '||a,'fuerza','https://www.youtube.com/watch?v=abcdefghijk','Técnica') returning id into lib;
+  checks:=checks||jsonb_build_object('coach_library_create',(select count(*) from public.training_exercise_library where id=lib)=1);
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims',json_build_object('sub',a,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  insert into public.training_session_results(session_id,athlete_id,prescription,entries,effort,sensations,revision,updated_at) values(sid,a,'{}',payload,6,'Cómodo',999,'2000-01-01');
+  checks:=checks||jsonb_build_object('owner_save_roundtrip',(select entries=payload and effort=6 and sensations='Cómodo' from public.training_session_results where session_id=sid),'server_snapshot',(select prescription=shape from public.training_session_results where session_id=sid),'server_revision',(select revision=1 from public.training_session_results where session_id=sid),'server_timestamp',(select updated_at>'2000-01-02' from public.training_session_results where session_id=sid),'library_hidden_from_clients',(select count(*) from public.training_exercise_library where id=lib)=0);
+  update public.training_session_results set entries=jsonb_set(entries,'{0,weight}','"25"'),prescription='{}',revision=400 where session_id=sid and revision=1;
+  checks:=checks||jsonb_build_object('snapshot_immutable',(select prescription=shape from public.training_session_results where session_id=sid),'revision_incremented',(select revision=2 from public.training_session_results where session_id=sid));
+  update public.training_session_results set sensations='Stale' where session_id=sid and revision=1;get diagnostics n=row_count;checks:=checks||jsonb_build_object('stale_revision_updates_nothing',n=0);
+  denied:=false;begin update public.training_session_results set session_id=other where session_id=sid;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('cannot_reassign_session',denied);
+  denied:=false;begin update public.training_session_results set athlete_id=b where session_id=sid;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('cannot_reassign_athlete',denied);
+  denied:=false;begin insert into public.training_session_results(session_id,athlete_id,entries) values(other,b,payload);exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('cannot_write_foreign',denied);
+  denied:=false;begin update public.training_session_results set entries=jsonb_set(payload,'{0,id}','"foreign"') where session_id=sid;exception when check_violation then denied:=true;end;checks:=checks||jsonb_build_object('invalid_entry_write_denied',denied);
+  denied:=false;begin delete from public.training_session_results where session_id=sid;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('direct_delete_denied',denied);
+  insert into public.training_session_results(session_id,athlete_id,entries,effort) values(legacy,a,'[]',5);
+  checks:=checks||jsonb_build_object('legacy_feedback_save',(select prescription is null and effort=5 from public.training_session_results where session_id=legacy));
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims',json_build_object('sub',coach,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  checks:=checks||jsonb_build_object('coach_read_results',(select count(*) from public.training_session_results where session_id=sid)=1);
+  update public.training_session_results set effort=10 where session_id=sid;get diagnostics n=row_count;checks:=checks||jsonb_build_object('coach_cannot_change_athlete_feedback',n=0);
+  update public.weekly_training_plan set structure=jsonb_set(shape,'{blocks,1,items,0,sets}','"4"') where id=sid;
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims',json_build_object('sub',a,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  update public.training_session_results set sensations='Actualizado' where session_id=sid;
+  checks:=checks||jsonb_build_object('coach_edit_preserves_original_results',(select prescription=shape and sensations='Actualizado' from public.training_session_results where session_id=sid));
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims',json_build_object('sub',b,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  checks:=checks||jsonb_build_object('foreign_results_hidden',(select count(*) from public.training_session_results where session_id=sid)=0);
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims',json_build_object('sub',basic,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  denied:=false;begin insert into public.training_session_results(session_id,athlete_id,entries) values(basic_sid,basic,payload);exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('basic_cannot_write_own_results',denied);
+  checks:=checks||jsonb_build_object('basic_cannot_read_results',(select count(*) from public.training_session_results where session_id=sid)=0);
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims','{}',true);perform set_config('role','anon',true);
+  denied:=false;begin perform 1 from public.training_session_results;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('anon_results_denied',denied);
+  denied:=false;begin perform 1 from public.training_exercise_library;exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('anon_library_denied',denied);
+  perform set_config('role','postgres',true);raise exception using errcode='P0002',message='Rollback results fixtures';
+ exception when no_data_found then null;
+ end;
+ return jsonb_build_object('checks',checks,'passed',(select count(*) from jsonb_each(checks) where value='true'::jsonb),'failed',(select count(*) from jsonb_each(checks) where value<>'true'::jsonb),'remaining_users',(select count(*) from auth.users where id in(a,b,coach,basic)),'remaining_results',(select count(*) from public.training_session_results where session_id in(sid,legacy)),'remaining_library',(select count(*) from public.training_exercise_library where id=lib));
+end;
+$suite$;
+select pg_temp.results_suite();

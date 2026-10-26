@@ -1,13 +1,16 @@
 "use client";
 import { useRef, useState, type FormEvent } from "react";
 import TrainingSessionContent from "./TrainingSessionContent";
-import { categories, stages, newExercise, starterTemplates, type TrainingDraft, type Exercise, type Stage, type TrainingTemplate } from "@/lib/training-builder";
+import { categories, stages, newExercise, starterTemplates, type TrainingDraft, type Exercise, type Stage, type TrainingTemplate, type LibraryExercise } from "@/lib/training-builder";
 import s from "./training-builder.module.css";
-type Props = { draft: TrainingDraft; onChange: (draft: TrainingDraft)=>void; date: string; onDate: (date:string)=>void; min: string; max: string; editing: boolean; busy:boolean; error:string; message:string; templates:TrainingTemplate[]; templateError:string; templateBusy:boolean; onTemplate:(id:string)=>void; onSaveTemplate:(name:string)=>Promise<boolean>; onSave:(event:FormEvent<HTMLFormElement>)=>void; onCancel:()=>void };
+type Props = { draft: TrainingDraft; onChange: (draft: TrainingDraft)=>void; date: string; onDate: (date:string)=>void; min: string; max: string; editing: boolean; busy:boolean; error:string; message:string; templates:TrainingTemplate[]; templateError:string; templateBusy:boolean; onTemplate:(id:string)=>void; onSaveTemplate:(name:string)=>Promise<boolean>; onSave:(event:FormEvent<HTMLFormElement>)=>void; onCancel:()=>void; library:LibraryExercise[]; libraryBusy:boolean; libraryNotice:string; onLibrarySave:(exercise:Exercise)=>void };
 export default function TrainingComposer(p:Props) {
   const [preview,setPreview]=useState(true);
   const [templateName,setTemplateName]=useState("");
   const [templateId,setTemplateId]=useState("");
+  const [librarySearch,setLibrarySearch]=useState("");
+  const library=p.library.filter(i=>i.name.toLocaleLowerCase("es").includes(librarySearch.toLocaleLowerCase("es")));
+  const [libraryItemId,setLibraryItemId]=useState("");
   const titleRef=useRef<HTMLInputElement>(null);
   const structure=p.draft.structure;
   const update=(stage:Stage,id:string,field:keyof Exercise,value:string)=>p.onChange({...p.draft,structure:{...structure,blocks:structure.blocks.map(b=>b.stage===stage?{...b,items:b.items.map(i=>i.id===id?{...i,[field]:value}:i)}:b)}});
@@ -24,6 +27,7 @@ export default function TrainingComposer(p:Props) {
       <label className={s.label}>Empezar desde una plantilla<select className={s.field} disabled={p.busy||p.templateBusy} value={templateId} onChange={e=>{const id=e.target.value;if(!id)return;if((p.draft.title || structure.notes || structure.blocks.some(b=>b.items.length)) && !window.confirm("¿Sustituir este borrador por la plantilla? La sesión guardada no se modifica hasta pulsar Guardar.")){return;}setTemplateId("");p.onTemplate(id);}}><option value="">Selecciona una plantilla…</option><optgroup label="Plantillas de inicio">{starterTemplates.map(t=><option value={`starter:${t.id}`} key={t.id}>{t.name}</option>)}</optgroup><optgroup label="Plantillas del equipo">{p.templates.map(t=><option value={t.id} key={t.id}>{t.name}</option>)}</optgroup></select></label>
       <div><p className={s.muted}>Adapta las plantillas al nivel y al objetivo del deportista. La fecha y el cliente se eligen al programar.</p></div>
     </div>
+    <div className={s.library}><h3>Biblioteca de ejercicios</h3><p className={s.muted}>Guarda ejercicios con indicaciones y un enlace de YouTube o Vimeo. Añádelos a los bloques sin volver a escribirlos.</p><label className={s.label}>Buscar ejercicio<input className={s.field} type="search" value={librarySearch} onChange={e=>setLibrarySearch(e.target.value)} placeholder="Nombre del ejercicio"/></label>{p.libraryNotice&&<p role="status" className={s.muted}>{p.libraryNotice}</p>}</div>
     <div className={s.editorGrid}><form onSubmit={submit} noValidate aria-busy={p.busy}>
       <fieldset disabled={p.busy||p.templateBusy} style={{border:0,padding:0,margin:0,minWidth:0}}>
         <div className={s.grid}>
@@ -49,8 +53,11 @@ export default function TrainingComposer(p:Props) {
               <label className={s.label}>Intensidad, ritmo o zona<input className={s.field} maxLength={80} placeholder="Z2 / RPE 6 / 5:30 min/km" value={i.intensity} onChange={e=>update(block.stage,i.id,"intensity",e.target.value)}/></label>
             </div>
             <label className={s.label}>Indicaciones del ejercicio<textarea className={s.field} rows={2} maxLength={1000} value={i.notes} onChange={e=>update(block.stage,i.id,"notes",e.target.value)}/></label>
-            <button className={`${s.button} ${s.danger}`} type="button" aria-label={`Quitar ejercicio ${n+1} de ${stages[block.stage]}`} onClick={()=>p.onChange({...p.draft,structure:{...structure,blocks:structure.blocks.map(b=>b.stage===block.stage?{...b,items:b.items.filter(x=>x.id!==i.id)}:b)}})}>Quitar ejercicio</button>
+            <label className={s.label}>Vídeo demostrativo (opcional)<input className={s.field} type="url" inputMode="url" maxLength={500} value={i.videoUrl??""} placeholder="https://www.youtube.com/watch?v=…" onChange={e=>update(block.stage,i.id,"videoUrl",e.target.value)}/></label>
+            <div className={s.bar}><button className={`${s.button} ${s.secondary}`} type="button" disabled={p.libraryBusy} onClick={()=>{setLibraryItemId(i.id);p.onLibrarySave(i);}}>{p.libraryBusy?"Guardando…":"Guardar ejercicio en biblioteca"}</button>
+            <button className={`${s.button} ${s.danger}`} type="button" aria-label={`Quitar ejercicio ${n+1} de ${stages[block.stage]}`} onClick={()=>p.onChange({...p.draft,structure:{...structure,blocks:structure.blocks.map(b=>b.stage===block.stage?{...b,items:b.items.filter(x=>x.id!==i.id)}:b)}})}>Quitar ejercicio</button></div>{p.libraryNotice&&libraryItemId===i.id&&<p role="status" className={s.muted}>{p.libraryNotice}</p>}
           </div>)}
+          <label className={s.label}>Añadir desde la biblioteca<select className={s.field} value="" disabled={block.items.length>=30||p.libraryBusy} onChange={e=>{const selected=p.library.find(i=>i.id===e.target.value);if(!selected)return;const item={...newExercise(),name:selected.name,notes:selected.notes,videoUrl:selected.video_url};p.onChange({...p.draft,structure:{...structure,blocks:structure.blocks.map(b=>b.stage===block.stage?{...b,items:[...b.items,item]}:b)}});}}><option value="">Selecciona un ejercicio…</option>{library.map(i=><option value={i.id} key={i.id}>{i.name} · {categories[i.category]}</option>)}</select></label>
           <button className={`${s.button} ${s.secondary}`} type="button" disabled={block.items.length>=30} onClick={()=>p.onChange({...p.draft,structure:{...structure,blocks:structure.blocks.map(b=>b.stage===block.stage?{...b,items:[...b.items,newExercise()]}:b)}})}>+ Añadir a {stages[block.stage].toLowerCase()}</button>
         </fieldset>)}
       </fieldset>

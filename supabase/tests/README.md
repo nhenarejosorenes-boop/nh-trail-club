@@ -58,3 +58,7 @@ Browser navigation remains untested. Vercel environment inspection found the `nh
 ## Visual training builder
 
 `training-builder.test.mjs` checks structured editing, compatibility and duplication. `training_builder_test_only.sql` is guarded for TEST and rolls all fixtures back. `training_builder_api_test_only.py` uses disposable TEST users provisioned separately; always sign out and remove fixtures afterwards. Never run fixture suites in production. See `training_builder_review.md`.
+
+## Videos and performed results
+
+`training-results.test.mjs` checks video URL handling and performed-result models. `training_results_test_only.sql` runs rollback-only permission, snapshot and revision tests in TEST; never production. See `training_results_review.md` for behavior and limits.

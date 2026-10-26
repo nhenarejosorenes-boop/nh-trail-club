@@ -1,4 +1,5 @@
 import { categories, readStructure, stages } from "@/lib/training-builder";
+import { videoLink } from "@/lib/training-video";
 import s from "./training-builder.module.css";
 export default function TrainingSessionContent({ title, category, structure, details }: { title: string; category: string; structure: unknown; details?: string | null }) {
   const plan = readStructure(structure);
@@ -16,6 +17,7 @@ export default function TrainingSessionContent({ title, category, structure, det
           {i.sets && <span className={s.pill}>{i.sets} series</span>}{i.reps && <span className={s.pill}>{i.reps} {category==="fuerza" ? "rep." : "por serie"}</span>}
           {i.weight && <span className={s.pill}>{i.weight} kg</span>}{i.rest && <span className={s.pill}>Descanso {i.rest} s</span>}{i.duration && <span className={s.pill}>{i.duration}</span>}
         </div>
+        {i.videoUrl && videoLink(i.videoUrl) && <p><a className={`${s.button} ${s.secondary}`} href={videoLink(i.videoUrl)!} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">▶ Ver demostración</a></p>}
         {i.intensity && <p><strong>Intensidad:</strong> {i.intensity}</p>}{i.notes && <p className={s.notes}>{i.notes}</p>}
       </section>)}
     </details>)}
