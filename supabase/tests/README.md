@@ -1,5 +1,13 @@
 # Membership RLS tests — isolated TEST project
 
+## Local application checks
+
+Run `node --experimental-strip-types --test supabase/tests/*.test.mjs`, `npx tsc --noEmit` and `npm run build` from the repository root. The current local suite has **43 checks**: 20 membership cases, 13 progress cases and 10 trail-log cases.
+
+The trail-log checks cover monthly pagination beyond 1000 records, ownership/date filters, stable ordering, rejection of incomplete loads, and date/numeric validation for creating or editing a run. These use synthetic in-memory responses, perform no database writes, and do not replace authenticated browser verification. The same monthly loader feeds the run history and progress panel.
+
+## Database verification history
+
 Latest verification: **184 database checks + 133 Auth/API checks passed** after additive membership gates. See `membership_access_review.md` and the `membership_*_results_20261026.json` files. Apply the new membership migration to TEST before running the expanded suites. Earlier 141/112 results below describe the initial verification, before this change.
 
 Production activation: migration `20261026162858_membership_access_guards.sql` was applied on 2026-10-26. All 21 prior policies were preserved; 6 restrictive gates were added. Seventeen read-only checks across the 3 existing accounts passed. See the review for scope and remaining advisor findings.
