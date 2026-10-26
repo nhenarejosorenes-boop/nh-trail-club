@@ -1,253 +1,137 @@
 "use client";
-
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import MembershipNotice from "@/components/MembershipNotice";
+import TrainingComposer from "./TrainingComposer";
+import TrainingSessionContent from "./TrainingSessionContent";
 import { loadMembershipAccess } from "@/lib/membership-client";
 import type { MembershipAccess } from "@/lib/membership-model";
 import { loadCoachAthletes, plannerContext } from "@/lib/coach-tracking";
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
-type Session = { id: string; athlete_id: string; session_date: string; category: string; title: string; details: string; completed: boolean };
-type Athlete = { user_id: string | null; nombre: string };
-type ExerciseDraft = { id: string; name: string; sets: string; reps: string; weight: string; rest: string };
-const card: React.CSSProperties = { background: "#202020", borderRadius: 12, padding: 20, marginBottom: 14 };
-const input: React.CSSProperties = { width: "100%", padding: 10, marginTop: 6, marginBottom: 14, background: "#292929", color: "white", border: "1px solid #555", borderRadius: 8, boxSizing: "border-box" };
-const button: React.CSSProperties = { background: "#f28c28", color: "#111", border: 0, padding: "11px 16px", borderRadius: 8, fontWeight: "bold", cursor: "pointer" };
-function dateString(d: Date) { const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,"0"); const day = String(d.getDate()).padStart(2,"0"); return y+"-"+m+"-"+day; }
-function monday(d: Date) { const x = new Date(d); x.setHours(12,0,0,0); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; }
-
-type TrainingPlanProps = { categoryFilter?: "fuerza" | "trail"; showEditor?: boolean };
-
-export default function TrainingPlan({ categoryFilter, showEditor = false }: TrainingPlanProps) {
-  const [userId, setUserId] = useState("");
-  const [admin, setAdmin] = useState(false);
-  const [athletes, setAthletes] = useState<Athlete[]>([]);
-  const [selected, setSelected] = useState("");
-  const [week, setWeek] = useState(dateString(monday(new Date())));
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [saveError, setSaveError] = useState("");
-  const [membership, setMembership] = useState<MembershipAccess | null>(null);
-  const [accessError, setAccessError] = useState(false);
-  const [title, setTitle] = useState("");
-  const [details, setDetails] = useState("");
-  const [category, setCategory] = useState<string>(categoryFilter ?? "trail");
-  const [date, setDate] = useState(dateString(new Date()));
-  const [exercises, setExercises] = useState<ExerciseDraft[]>([]);
-  const [trailTarget, setTrailTarget] = useState({ distance: "", elevation: "", minutes: "", effort: "" });
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
-  const titleInput = useRef<HTMLInputElement>(null);
-
-  function clearEditor() {
-    setEditingId(null); setTitle(""); setDetails(""); setExercises([]); setSaveError("");
-    setTrailTarget({ distance: "", elevation: "", minutes: "", effort: "" });
+import { emptyDraft, copyDraft, draftFromSession, plainPrescription, readStructure, starterTemplates, validateDraft, type Category, type TrainingDraft, type TrainingSession, type TrainingTemplate } from "@/lib/training-builder";
+import s from "./training-builder.module.css";
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+const fields="id,athlete_id,session_date,category,title,details,completed,structure";
+function dateString(d:Date){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
+function shift(value:string,days:number){const d=new Date(value+"T12:00:00");d.setDate(d.getDate()+days);return dateString(d);}
+function monday(d:Date){const x=new Date(d);x.setDate(x.getDate()-(x.getDay()+6)%7);return dateString(x);}
+async function loadWeek(athlete:string,week:string){
+  const rows:TrainingSession[]=[];
+  for(let from=0;;from+=500){
+    const {data,error}=await supabase.from("weekly_training_plan").select(fields).eq("athlete_id",athlete).gte("session_date",week).lt("session_date",shift(week,7)).order("session_date").order("id").range(from,from+499);
+    if(error)throw error; rows.push(...(data??[]) as TrainingSession[]);if(!data||data.length<500)return rows;
   }
-  function editSession(session: Session) {
-    clearEditor(); setEditingId(session.id); setTitle(session.title); setDetails(session.details);
-    setCategory(session.category); setDate(session.session_date); setError(""); setMessage("");
-    titleInput.current?.focus();
-  }
-
-  function updateExercise(id: string, field: Exclude<keyof ExerciseDraft, "id">, value: string) {
-    setExercises(rows => rows.map(row => row.id === id ? { ...row, [field]: value } : row));
-  }
-
-  useEffect(() => {
-    let active = true;
-    async function init() {
-      try {
-      const { data: auth, error: authError } = await supabase.auth.getUser();
-      if (!active) return;
-      if (authError || !auth.user) { window.location.replace("/login"); return; }
-      setUserId(auth.user.id);
-      const access = await loadMembershipAccess(supabase, auth.user.id);
-      if (!active) return;
-      setMembership(access);
-      if (!access.premium) { setLoading(false); return; }
-      let selectedId = auth.user.id;
-      if (access.state === "admin") {
-        setAdmin(true);
-        const data = await loadCoachAthletes(supabase);
-        if (!active) return;
-        const linked = data.filter(a => a.user_id !== null);
-        setAthletes(linked);
-        const params = new URLSearchParams(window.location.search);
-        const context = plannerContext(linked, auth.user.id, params.get("athlete"), params.get("date"));
-        selectedId = context.athleteId;
-        if (context.week) { setWeek(context.week); setDate(context.week); }
-      }
-      setSelected(selectedId);
-      setLoading(false);
-      } catch {
-        if (active) { setAccessError(true); setLoading(false); }
-      }
-    }
-    void init();
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!selected) return;
-    let active = true;
-    async function load() {
-      setLoading(true);
-      try {
-      const start = new Date(week+"T12:00:00");
-      const end = new Date(start); end.setDate(end.getDate()+7);
-      const { data, error: queryError } = await supabase.from("weekly_training_plan").select("id,athlete_id,session_date,category,title,details,completed")
-        .eq("athlete_id", selected).gte("session_date",dateString(start)).lt("session_date",dateString(end)).order("session_date");
-      if (active) { setSessions((data ?? []) as Session[]); setError(queryError?.message ?? ""); setLoading(false); }
-      } catch {
-        if (active) { setSessions([]); setError("No se pudo cargar la planificación. Comprueba tu conexión y vuelve a intentarlo."); }
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-    void load();
-    return () => { active = false; };
-  }, [selected,week]);
-
-  async function refresh() {
-    const start = new Date(week+"T12:00:00"); const end = new Date(start); end.setDate(end.getDate()+7);
-    const { data, error: e } = await supabase.from("weekly_training_plan").select("id,athlete_id,session_date,category,title,details,completed")
-      .eq("athlete_id",selected).gte("session_date",dateString(start)).lt("session_date",dateString(end)).order("session_date");
-    if (e) setError(e.message); else setSessions((data ?? []) as Session[]);
-  }
-  async function add(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault(); if (!admin || !showEditor || !selected || busy) return;
-    setMessage(""); setSaveError("");
-    if (!title.trim()) { setSaveError("Escribe el título de la sesión para poder guardarla."); titleInput.current?.focus(); return; }
-    if (!e.currentTarget.checkValidity()) {
-      setSaveError("Revisa los campos de la sesión: hay un dato obligatorio vacío o un valor fuera del rango permitido.");
-      e.currentTarget.reportValidity(); return;
-    }
-    const start = new Date(week+"T12:00:00"); const end = new Date(start); end.setDate(end.getDate()+7);
-    if (date < dateString(start) || date >= dateString(end)) { setSaveError("Selecciona una fecha dentro de la semana visible."); return; }
-    setBusy(true); setError(""); setMessage("");
-    try {
-    const prescribed = category === "fuerza" ? exercises.filter(row => row.name.trim()).map((row, i) =>
-      (i + 1) + ". " + row.name.trim() + " · " + row.sets + " series × " + row.reps + " repeticiones" + (row.weight ? " · " + row.weight + " kg" : "") + (row.rest ? " · Descanso " + row.rest + " s" : "")).join("\n") : category === "trail" ?
-      [trailTarget.distance && "Distancia objetivo: " + trailTarget.distance + " km", trailTarget.elevation && "Desnivel positivo objetivo: " + trailTarget.elevation + " m+", trailTarget.minutes && "Duración objetivo: " + trailTarget.minutes + " min", trailTarget.effort && "Esfuerzo objetivo: " + trailTarget.effort + "/10"].filter(Boolean).join("\n") : "";
-    const sessionDetails = [details.trim(), prescribed].filter(Boolean).join("\n\n");
-    const record = { session_date: date, category, title: title.trim(), details: sessionDetails };
-    const result = editingId ? await supabase.from("weekly_training_plan").update(record).eq("id", editingId).eq("athlete_id", selected).select("id") :
-      await supabase.from("weekly_training_plan").insert({ ...record, athlete_id: selected }).select("id");
-    if (result.error) setSaveError("No se pudo guardar la sesión: " + result.error.message);
-    else if (!result.data?.length) setSaveError("No se pudo guardar la sesión. Actualiza la planificación e inténtalo de nuevo.");
-    else { setMessage(editingId ? "Sesión actualizada." : "Sesión programada."); clearEditor(); await refresh(); }
-    } catch { setSaveError("No se pudo confirmar el guardado. Comprueba tu conexión y la planificación antes de volver a guardar."); }
-    finally { setBusy(false); }
-  }
-  async function toggle(s: Session) {
-    if (busy || loading || s.athlete_id !== selected || (!admin && s.athlete_id !== userId)) return;
-    setBusy(true); setError("");
-    try {
-    const { error: err } = await supabase.rpc("mark_training_completed",{ p_id:s.id, p_completed:!s.completed });
-    if (err) setError(err.message); else await refresh();
-    } catch { setError("No se pudo actualizar la sesión. Comprueba tu conexión y vuelve a cargar la planificación para confirmar su estado."); }
-    finally { setBusy(false); }
-  }
-  async function remove(s: Session) {
-    if (!admin || busy || loading || s.athlete_id !== selected || !window.confirm("¿Eliminar esta sesión?")) return;
-    setBusy(true); setError("");
-    try {
-    const { error: err, data } = await supabase.from("weekly_training_plan").delete().eq("id",s.id).eq("athlete_id",selected).select("id");
-    if (err) setError(err.message);
-    else {
-      if (editingId === s.id) clearEditor();
-      setMessage(data?.length ? "Sesión eliminada." : "La sesión ya no está disponible. Se ha actualizado la planificación.");
-      await refresh();
-    }
-    } catch { setError("No se pudo confirmar la eliminación. Comprueba tu conexión y vuelve a cargar la planificación para confirmar su estado."); }
-    finally { setBusy(false); }
-  }
-  function moveWeek(days: number) {
-    if (busy) return;
-    const d = new Date(week+"T12:00:00"); d.setDate(d.getDate()+days);
-    const next = dateString(d); setLoading(true); setSessions([]); setWeek(next); setDate(next); setError(""); setMessage(""); clearEditor();
-  }
-  const visibleSessions = categoryFilter ? sessions.filter(s => s.category === categoryFilter) : sessions;
-  const heading = categoryFilter === "fuerza" ? "Entrenamiento de fuerza" : categoryFilter === "trail" ? "Entrenamiento Trail Running" : showEditor ? "Planificación semanal" : "Mis entrenamientos";
-  const weekEnd = new Date(week+"T12:00:00"); weekEnd.setDate(weekEnd.getDate()+6);
-  if (loading && !membership && !accessError) return <main style={{ padding: 40, background: "#111", color: "white", minHeight: "100vh" }}><p role="status">Comprobando tu acceso...</p></main>;
-  if (accessError || !membership?.premium) return <MembershipNotice access={membership} error={accessError} />;
-  return <main style={{ minHeight:"100vh", background:"#111", color:"white", padding:"35px 20px", fontFamily:"Arial,sans-serif" }}>
-    <div style={{ maxWidth:900, margin:"0 auto" }}>
-      <p style={{ color:"#f28c28", fontWeight:"bold" }}>NH TRAINING CONCEPT</p>
-      <Link href="/dashboard" style={{ color: "#f28c28", display: "inline-block", marginBottom: 12 }}>← Volver a mi panel</Link>
-      <h1>{heading}</h1>
-      <p style={{ color:"#bbb" }}>Fuerza, trail, movilidad y recuperación · NH Trail Club</p>
-      {categoryFilter === "trail" && <p><Link href="/seguimiento-trail" style={{ ...button, display: "inline-block", textDecoration: "none" }}>Registrar salida realizada →</Link></p>}
-      <nav aria-label="Tipos de entrenamiento" style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "22px 0" }}>
-        {[{ href: "/entrenamientos", text: "Todos", active: !categoryFilter && !showEditor }, { href: "/entrenamientos/fuerza", text: "Fuerza", active: categoryFilter === "fuerza" }, { href: "/entrenamientos/trail", text: "Trail", active: categoryFilter === "trail" }, { href: "/entrenamientos/plan", text: admin ? "Gestionar planificación" : "Plan semanal", active: showEditor }].map(item => <Link key={item.href} href={item.href} aria-current={item.active ? "page" : undefined} style={{ ...button, display: "inline-block", textDecoration: "none", background: item.active ? "#f28c28" : "#292929", color: item.active ? "#111" : "white", border: "1px solid #555" }}>{item.text}</Link>)}
-      </nav>
-      {admin && <label>Deportista
-        <select style={input} value={selected} disabled={busy} onChange={e=>{if(e.target.value === selected) return; setLoading(true);setSessions([]);setError("");setSelected(e.target.value);clearEditor();setMessage("");}}>
-          <option value={userId}>Mi planificación</option>
-          {athletes.filter(a=>a.user_id && a.user_id!==userId).map(a=><option key={a.user_id!} value={a.user_id!}>{a.nombre}</option>)}
-        </select>
-      </label>}
-      <div style={{ display:"flex", alignItems:"center", gap:15, flexWrap:"wrap", margin:"25px 0" }}>
-        <button style={button} disabled={busy} onClick={()=>moveWeek(-7)}>← Anterior</button>
-        <strong>{new Date(week+"T12:00:00").toLocaleDateString("es-ES")} — {weekEnd.toLocaleDateString("es-ES")}</strong>
-        <button style={button} disabled={busy} onClick={()=>moveWeek(7)}>Siguiente →</button>
-      </div>
-      {error && <p role="alert" style={{ color:"#ff9999" }}>{error}</p>}
-      {error && <button type="button" style={button} disabled={busy} onClick={() => window.location.reload()}>Volver a cargar la planificación</button>}
-      {message && <p role="status" style={{ color: "#8fddaa" }}>{message}</p>}
-      {!loading && !error && <section aria-label="Resumen de la semana" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12, marginBottom: 22 }}>{[["Programadas", visibleSessions.length], ["Completadas", visibleSessions.filter(s => s.completed).length], ["Pendientes", visibleSessions.filter(s => !s.completed).length]].map(([label, value]) => <div key={label} style={card}><p style={{ color: "#bbb", fontSize: 13 }}>{label}</p><strong style={{ color: "#f28c28", fontSize: 28 }}>{value}</strong></div>)}</section>}
-      {loading ? <p>Cargando planificación...</p> : error ? null : visibleSessions.length === 0 ? <section style={card}><h2>{categoryFilter ? "Sin sesiones de " + (categoryFilter === "fuerza" ? "fuerza" : "trail") + " esta semana" : "Sin sesiones programadas esta semana"}</h2><p style={{ color: "#ccc", lineHeight: 1.6 }}>{admin ? "Selecciona un deportista o utiliza la planificación para programar sus sesiones." : "Aquí aparecerán las sesiones que te asigne tu entrenador. Puedes consultar otras semanas con los botones Anterior y Siguiente."}</p>{categoryFilter && <Link href="/entrenamientos" style={{ color: "#f28c28" }}>Ver todos mis entrenamientos →</Link>}{admin && !showEditor && <p><Link href="/entrenamientos/plan" style={{ color: "#f28c28" }}>Programar entrenamientos →</Link></p>}</section> :
-        visibleSessions.map(s=><article key={s.id} style={card}>
-          <p style={{ color:"#f28c28", fontWeight:"bold" }}>{new Date(s.session_date+"T12:00:00").toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})} · {s.category.toUpperCase()}</p>
-          <h2>{s.title}</h2><p style={{ whiteSpace:"pre-wrap", color:"#ccc" }}>{s.details}</p>
-          <p><Link href={"/mensajes?" + new URLSearchParams({ athlete: s.athlete_id, training: s.id }).toString()} style={{ color: "#ffad63" }}>{admin ? "Enviar mensaje sobre esta sesión →" : "Consultar al entrenador sobre esta sesión →"}</Link></p>
-          <label style={{ display:"inline-flex", alignItems:"center", gap:10 }}>
-            <input type="checkbox" checked={s.completed} disabled={busy} onChange={()=>void toggle(s)} /> Sesión completada
-          </label>
-          {admin && showEditor && <button disabled={busy} onClick={()=>void remove(s)} style={{ ...button, marginLeft:20, background:"#7a3333", color:"white" }}>Eliminar</button>}
-          {admin && showEditor && <button disabled={busy} onClick={() => editSession(s)} style={{ ...button, marginLeft: 12 }}>Editar</button>}
-        </article>)}
-      {admin && showEditor && <section style={{ ...card, marginTop:30 }}>
-        <h2>{editingId ? "Editar sesión" : "Programar sesión"}</h2>
-        <form onSubmit={add} noValidate aria-busy={busy}>
-          <label>Fecha<input style={input} type="date" value={date} min={week} max={dateString(weekEnd)} onChange={e=>setDate(e.target.value)} required /></label>
-          <label>Tipo<select style={input} value={category} onChange={e=>setCategory(e.target.value)}>
-            <option value="trail">Trail</option><option value="fuerza">Fuerza</option><option value="movilidad">Movilidad</option><option value="descanso">Descanso</option>
-          </select></label>
-          <label>Título (obligatorio)<input ref={titleInput} style={input} value={title} placeholder="Ej.: Fuerza de tren inferior" onChange={e=>setTitle(e.target.value)} required maxLength={120} aria-describedby="session-save-help" /></label>
-          <label>Indicaciones<textarea style={input} value={details} onChange={e=>setDetails(e.target.value)} rows={4} /></label>
-          {category === "fuerza" && <section style={{ marginBottom: 22 }}><h3>Ejercicios de fuerza</h3><p style={{ color: "#bbb" }}>Añade los ejercicios prescritos. Se guardarán junto a las indicaciones de esta sesión.</p>
-            {exercises.map((row, index) => <fieldset key={row.id} style={{ border: "1px solid #555", borderRadius: 10, padding: 16, marginBottom: 14 }}><legend>Ejercicio {index + 1}</legend>
-              <label>Nombre del ejercicio<input style={input} value={row.name} maxLength={80} required onChange={e => updateExercise(row.id, "name", e.target.value)} /></label>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 12 }}>
-                <label>Series<input style={input} type="number" min="1" max="30" step="1" required value={row.sets} onChange={e => updateExercise(row.id, "sets", e.target.value)} /></label>
-                <label>Repeticiones<input style={input} type="number" min="1" max="100" step="1" required value={row.reps} onChange={e => updateExercise(row.id, "reps", e.target.value)} /></label>
-                <label>Carga (kg, opcional)<input style={input} type="number" min="0" max="1000" step="0.5" value={row.weight} onChange={e => updateExercise(row.id, "weight", e.target.value)} /></label>
-                <label>Descanso (segundos)<input style={input} type="number" min="0" max="3600" step="1" value={row.rest} onChange={e => updateExercise(row.id, "rest", e.target.value)} /></label>
-              </div><button type="button" style={{ ...button, background: "#333", color: "white" }} aria-label={"Quitar ejercicio " + (index + 1)} onClick={() => setExercises(rows => rows.filter(e => e.id !== row.id))}>Quitar ejercicio</button>
-            </fieldset>)}
-            <button type="button" style={button} onClick={() => setExercises(rows => [...rows, { id: crypto.randomUUID(), name: "", sets: "3", reps: "8", weight: "", rest: "60" }])}>Añadir ejercicio</button>
-          </section>}
-          {category === "trail" && <fieldset style={{ border: "1px solid #555", borderRadius: 10, padding: 16, marginBottom: 22 }}><legend>Objetivos de trail (opcionales)</legend><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
-            <label>Distancia (km)<input style={input} type="number" min="0" max="500" step="0.1" value={trailTarget.distance} onChange={e => setTrailTarget(t => ({ ...t, distance: e.target.value }))} /></label>
-            <label>Desnivel positivo (m)<input style={input} type="number" min="0" max="30000" step="1" value={trailTarget.elevation} onChange={e => setTrailTarget(t => ({ ...t, elevation: e.target.value }))} /></label>
-            <label>Duración (minutos)<input style={input} type="number" min="1" max="10080" step="1" value={trailTarget.minutes} onChange={e => setTrailTarget(t => ({ ...t, minutes: e.target.value }))} /></label>
-            <label>Esfuerzo (1–10)<input style={input} type="number" min="1" max="10" step="1" value={trailTarget.effort} onChange={e => setTrailTarget(t => ({ ...t, effort: e.target.value }))} /></label>
-          </div></fieldset>}
-          <p id="session-save-help" style={{ color: "#bbb" }}>Completa la fecha y el título. Al guardar, la sesión aparecerá en la semana del deportista seleccionado.</p>
-          {saveError && <p role="alert" style={{ color: "#ff9999" }}>{saveError}</p>}
-          {message && <p role="status" style={{ color: "#8fddaa" }}>{message}</p>}
-          <button type="submit" style={{ ...button, opacity: busy ? 0.6 : 1, cursor: busy ? "wait" : "pointer" }} disabled={busy}>{busy ? "Guardando..." : editingId ? "Guardar cambios" : "Guardar sesión"}</button>
-          {editingId && <button type="button" disabled={busy} style={{ ...button, marginLeft: 12, background: "#333", color: "white" }} onClick={clearEditor}>Cancelar edición</button>}
-        </form>
-      </section>}
-      <div style={{ marginTop:35, display: "flex", gap: 20, flexWrap: "wrap" }}><Link href="/dashboard" style={{ color:"#f28c28" }}>Volver a mi panel</Link><Link href="/salidas" style={{ color:"#f28c28" }}>Salidas del club</Link><Link href="/progreso" style={{ color:"#f28c28" }}>Mi progreso</Link></div>
-    </div>
-  </main>;
 }
-
+async function loadTemplates(){
+  const rows:TrainingTemplate[]=[];
+  for(let from=0;;from+=500){
+    const {data,error}=await supabase.from("training_templates").select("id,name,category,title,structure").order("name").order("id").range(from,from+499);
+    if(error)throw error;rows.push(...(data??[]) as TrainingTemplate[]);if(!data||data.length<500)return rows;
+  }
+}
+export default function TrainingPlan({categoryFilter,showEditor=false}:{categoryFilter?:"fuerza"|"trail";showEditor?:boolean}){
+  const [userId,setUserId]=useState("");const [admin,setAdmin]=useState(false);
+  const [athletes,setAthletes]=useState<{user_id:string|null;nombre:string}[]>([]);
+  const [selected,setSelected]=useState("");const [week,setWeek]=useState(()=>monday(new Date()));const [day,setDay]=useState("");
+  const [sessions,setSessions]=useState<TrainingSession[]>([]);const [loading,setLoading]=useState(true);const [busy,setBusy]=useState(false);
+  const busyRef=useRef(false);const templateBusyRef=useRef(false);
+  const [error,setError]=useState("");const [saveError,setSaveError]=useState("");const [message,setMessage]=useState("");
+  const [membership,setMembership]=useState<MembershipAccess|null>(null);const [accessError,setAccessError]=useState(false);
+  const [draft,setDraft]=useState<TrainingDraft>(()=>emptyDraft(categoryFilter));const [date,setDate]=useState(()=>dateString(new Date()));
+  const [editingId,setEditingId]=useState<string|null>(null);const [templates,setTemplates]=useState<TrainingTemplate[]>([]);
+  const [templateError,setTemplateError]=useState("");const [templateBusy,setTemplateBusy]=useState(false);
+  const [reload,setReload]=useState(0);
+  useEffect(()=>{
+    let active=true;
+    (async()=>{try{
+      const auth=await supabase.auth.getUser();if(!active)return;
+      if(auth.error||!auth.data.user){window.location.replace("/login");return;}
+      const uid=auth.data.user.id;setUserId(uid);const access=await loadMembershipAccess(supabase,uid);if(!active)return;setMembership(access);
+      if(!access.premium){setLoading(false);return;}
+      let target=uid;
+      if(access.state==="admin"){
+        setAdmin(true);const linked=(await loadCoachAthletes(supabase)).filter(a=>a.user_id!==null);if(!active)return;setAthletes(linked);
+        const params=new URLSearchParams(window.location.search);const context=plannerContext(linked,uid,params.get("athlete"),params.get("date"));target=context.athleteId;
+        if(context.week){setWeek(context.week);setDate(context.week);}
+      }
+      setSelected(target);
+    }catch{if(active){setAccessError(true);setLoading(false);}}})();return()=>{active=false;};
+  },[]);
+  useEffect(()=>{
+    if(!admin||!showEditor)return;let active=true;
+    loadTemplates().then(rows=>{if(active)setTemplates(rows);}).catch(()=>{if(active)setTemplateError("Las plantillas del equipo no se pudieron cargar. Las plantillas de inicio siguen disponibles.");});
+    return()=>{active=false;};
+  },[admin,showEditor]);
+  useEffect(()=>{
+    if(!selected)return;let active=true;setLoading(true);setError("");
+    loadWeek(selected,week).then(rows=>{if(active)setSessions(rows);}).catch(()=>{if(active){setSessions([]);setError("No se pudo cargar la planificación. Reintenta sin perder tu borrador.");}}).finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  },[selected,week,reload]);
+  function clearEditor(){setEditingId(null);setDraft(emptyDraft(categoryFilter));setSaveError("");setTemplateError("");}
+  function scrollEditor(){document.getElementById("session-editor")?.scrollIntoView({behavior:"smooth",block:"start"});}
+  function editSession(session:TrainingSession,duplicate=false){
+    setDraft(copyDraft(draftFromSession(session)));setEditingId(duplicate?null:session.id);setDate(duplicate?(day||week):session.session_date);setSaveError("");setMessage(duplicate?"Copia preparada. Elige la fecha y pulsa Guardar sesión.":"");scrollEditor();
+  }
+  function useTemplate(id:string){
+    const starter=starterTemplates.find(t=>`starter:${t.id}`===id);const saved=templates.find(t=>t.id===id);
+    const value=starter?.draft ?? (saved&&readStructure(saved.structure)?{title:saved.title,category:saved.category,structure:readStructure(saved.structure)!}:null);
+    if(!value){setTemplateError("No se pudo abrir esta plantilla.");return;}
+    setDraft(copyDraft(value));setEditingId(null);setSaveError("");setTemplateError("");setMessage("Plantilla cargada como nueva sesión. Revisa el contenido y la fecha antes de guardar.");
+  }
+  async function saveTemplate(name:string){
+    if(!admin||busyRef.current||templateBusyRef.current)return false;
+    const invalid=validateDraft(draft);if(!name.trim()||[...name.trim()].length>100||invalid){setTemplateError(invalid||"Escribe un nombre de plantilla de entre 1 y 100 caracteres.");return false;}
+    templateBusyRef.current=true;setTemplateBusy(true);setTemplateError("");
+    try{
+      const {data,error:failure}=await supabase.from("training_templates").insert({name:name.trim(),category:draft.category,title:draft.title.trim(),structure:draft.structure}).select("id,name,category,title,structure").single();
+      if(failure||!data)throw failure;
+      setTemplates(rows=>[...rows,data as TrainingTemplate].sort((a,b)=>a.name.localeCompare(b.name)));setMessage("Plantilla guardada para el equipo. La sesión del cliente se programa con Guardar sesión.");return true;
+    }catch{setTemplateError("No se pudo confirmar el guardado de la plantilla. Tu borrador se conserva; comprueba las plantillas antes de repetir.");return false;}
+    finally{templateBusyRef.current=false;setTemplateBusy(false);}
+  }
+  async function add(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();if(!admin||!showEditor||!selected||busyRef.current||templateBusyRef.current)return;
+    setMessage("");const invalid=validateDraft(draft);if(invalid){setSaveError(invalid);return;}
+    if(!date||date<week||date>shift(week,6)||!event.currentTarget.checkValidity()){setSaveError("Revisa la fecha de la semana visible y los valores de los ejercicios.");event.currentTarget.reportValidity();return;}
+    busyRef.current=true;setBusy(true);setSaveError("");
+    try{
+      const record={session_date:date,category:draft.category,title:draft.title.trim(),details:plainPrescription(draft.structure),structure:draft.structure};
+      const result=editingId?await supabase.from("weekly_training_plan").update(record).eq("id",editingId).eq("athlete_id",selected).select("id"):await supabase.from("weekly_training_plan").insert({...record,athlete_id:selected}).select("id");
+      if(result.error){setSaveError("No se pudo guardar: "+result.error.message);return;}if(!result.data?.length){setSaveError("La sesión no se guardó. Comprueba que tienes permisos para este deportista.");return;}
+      setMessage(editingId?"Sesión actualizada.":"Sesión programada.");clearEditor();setDay("");setReload(v=>v+1);
+    }catch{setSaveError("No se pudo confirmar el guardado. Tu borrador se conserva. Revisa la planificación antes de volver a guardar.");}
+    finally{busyRef.current=false;setBusy(false);}
+  }
+  async function toggle(session:TrainingSession){
+    if(busyRef.current||templateBusyRef.current||loading||session.athlete_id!==selected||(!admin&&session.athlete_id!==userId))return;
+    busyRef.current=true;setBusy(true);setError("");try{const {error:failure}=await supabase.rpc("mark_training_completed",{p_id:session.id,p_completed:!session.completed});if(failure)throw failure;setReload(v=>v+1);}catch{setError("No se pudo confirmar el estado de la sesión. Reintenta la carga para comprobarlo.");}finally{busyRef.current=false;setBusy(false);}
+  }
+  async function remove(session:TrainingSession){
+    if(!admin||busyRef.current||templateBusyRef.current||loading||session.athlete_id!==selected||!window.confirm("¿Eliminar esta sesión?"))return;
+    busyRef.current=true;setBusy(true);try{const {error:failure}=await supabase.from("weekly_training_plan").delete().eq("id",session.id).eq("athlete_id",selected);if(failure)throw failure;if(editingId===session.id)clearEditor();setMessage("Planificación actualizada.");setReload(v=>v+1);}catch{setError("No se pudo confirmar la eliminación. Reintenta la carga para comprobarlo.");}finally{busyRef.current=false;setBusy(false);}
+  }
+  function discard(){return !(draft.title||draft.structure.notes||draft.structure.blocks.some(b=>b.items.length))||window.confirm("¿Descartar el borrador sin guardar?");}
+  function moveWeek(days:number){if(busyRef.current||templateBusyRef.current||!discard())return;const next=shift(week,days);setWeek(next);setDate(next);setDay("");setSessions([]);clearEditor();setMessage("");}
+  const filtered=categoryFilter?sessions.filter(x=>x.category===categoryFilter):sessions;const visible=day?filtered.filter(x=>x.session_date===day):filtered;
+  const locked=busy||templateBusy;
+  const heading=categoryFilter==="fuerza"?"Entrenamiento de fuerza":categoryFilter==="trail"?"Entrenamiento Trail Running":showEditor?"Planificación semanal":"Mis entrenamientos";
+  if(loading&&!membership&&!accessError)return <main style={{padding:40,background:"#111",color:"white",minHeight:"100vh"}}><p role="status">Comprobando tu acceso…</p></main>;
+  if(accessError||!membership?.premium)return <MembershipNotice access={membership} error={accessError}/>;
+  return <main style={{minHeight:"100vh",background:"#111",color:"white",padding:"30px 14px",fontFamily:"Arial,sans-serif"}}><div className={s.shell}>
+    <p className={s.eyebrow}>NH TRAINING CONCEPT</p><Link href="/dashboard" style={{color:"#ffad63"}}>← Volver a mi panel</Link><h1>{heading}</h1><p className={s.muted}>Tu semana, paso a paso. Fuerza, trail, movilidad y recuperación.</p>
+    <nav className={s.bar} aria-label="Tipos de entrenamiento">{[{href:"/entrenamientos",label:"Todos",active:!categoryFilter&&!showEditor},{href:"/entrenamientos/fuerza",label:"Fuerza",active:categoryFilter==="fuerza"},{href:"/entrenamientos/trail",label:"Trail",active:categoryFilter==="trail"},{href:"/entrenamientos/plan",label:admin?"Crear y gestionar":"Plan semanal",active:showEditor}].map(x=><Link className={`${s.button} ${x.active?"":s.secondary}`} aria-current={x.active?"page":undefined} key={x.href} href={x.href}>{x.label}</Link>)}</nav>
+    {admin&&<label className={s.label}>Deportista<select className={s.field} value={selected} disabled={locked} onChange={e=>{if(e.target.value===selected||!discard())return;setSelected(e.target.value);setSessions([]);clearEditor();setMessage("");}}><option value={userId}>Mi planificación</option>{athletes.filter(a=>a.user_id&&a.user_id!==userId).map(a=><option key={a.user_id!} value={a.user_id!}>{a.nombre}</option>)}</select></label>}
+    <div className={s.bar}><button className={`${s.button} ${s.secondary}`} disabled={locked} onClick={()=>moveWeek(-7)}>← Anterior</button><strong>{new Date(week+"T12:00:00").toLocaleDateString("es-ES")} — {new Date(shift(week,6)+"T12:00:00").toLocaleDateString("es-ES")}</strong><button className={`${s.button} ${s.secondary}`} disabled={locked} onClick={()=>moveWeek(7)}>Siguiente →</button></div>
+    <nav className={s.week} aria-label="Días de la semana">{Array.from({length:7},(_,n)=>{const value=shift(week,n),d=new Date(value+"T12:00:00"),count=filtered.filter(x=>x.session_date===value).length;return <button key={value} className={`${s.day} ${day===value?s.active:""}`} aria-pressed={day===value} aria-label={`${d.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})}: ${count} sesiones`} disabled={loading} onClick={()=>setDay(v=>v===value?"":value)}><span>{d.toLocaleDateString("es-ES",{weekday:"short"})}</span><strong>{d.getDate()}</strong><small>{loading?"…":count?`${count} sesión${count===1?"":"es"}`:"Sin sesión"}</small></button>;})}</nav>
+    {day&&<button className={`${s.button} ${s.secondary}`} onClick={()=>setDay("")}>Ver toda la semana</button>}
+    {!loading&&!error&&<div className={`${s.panel} ${s.summary}`} aria-label="Resumen semanal"><span><strong>{filtered.length}</strong> programadas</span><span><strong>{filtered.filter(x=>x.completed).length}</strong> completadas</span><span><strong>{filtered.filter(x=>!x.completed).length}</strong> pendientes</span></div>}
+    {error&&<div role="alert" className={s.panel}><p className={s.alert}>{error}</p><button className={s.button} disabled={locked} onClick={()=>setReload(v=>v+1)}>Reintentar carga</button></div>}{message&&<p className={s.status} role="status">{message}</p>}
+    {loading?<p role="status">Cargando planificación…</p>:!error&&visible.length===0?<section className={s.panel}><h2>{day?"Sin sesiones para este día":"Sin sesiones programadas esta semana"}</h2><p className={s.muted}>{admin?"Crea un entrenamiento desde una plantilla o diseña los bloques para este deportista.":"Aquí verás las sesiones que programe tu entrenador. Puedes consultar otras semanas."}</p>{admin&&!showEditor&&<Link className={s.button} href="/entrenamientos/plan">Crear entrenamiento →</Link>}</section>:!error&&visible.map(session=><article className={`${s.panel} ${session.completed?s.completed:""}`} key={session.id}>
+      <div className={s.bar}><strong>{new Date(session.session_date+"T12:00:00").toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})}</strong><span className={session.completed?s.status:s.muted}>{session.completed?"✓ Completada":"Pendiente"}</span></div>
+      <TrainingSessionContent {...session}/><div className={s.actions}><div className={s.bar}><button className={`${s.button} ${session.completed?s.secondary:""}`} aria-pressed={session.completed} disabled={locked} onClick={()=>void toggle(session)}>{session.completed?"Marcar como pendiente":"Marcar sesión completada"}</button><Link className={`${s.button} ${s.secondary}`} href={"/mensajes?"+new URLSearchParams({athlete:session.athlete_id,training:session.id}).toString()}>{admin?"Mensaje sobre esta sesión":"Consultar al entrenador"}</Link></div>
+      {admin&&showEditor&&<div className={s.bar}><button className={`${s.button} ${s.secondary}`} disabled={locked} onClick={()=>{if(discard())editSession(session);}}>Editar</button><button className={`${s.button} ${s.secondary}`} disabled={locked} onClick={()=>{if(discard())editSession(session,true);}}>Duplicar sesión</button><button className={`${s.button} ${s.danger}`} disabled={locked} onClick={()=>void remove(session)}>Eliminar</button></div>}</div>
+    </article>)}
+    {admin&&showEditor&&<TrainingComposer draft={draft} onChange={setDraft} date={date} onDate={setDate} min={week} max={shift(week,6)} editing={!!editingId} busy={busy} error={saveError} message={message} templates={templates} templateError={templateError} templateBusy={templateBusy} onTemplate={useTemplate} onSaveTemplate={saveTemplate} onSave={add} onCancel={()=>{if(discard()){clearEditor();setMessage("");}}}/>}
+    <nav className={s.bar} aria-label="Más opciones"><Link className={`${s.button} ${s.secondary}`} href="/dashboard">Mi panel</Link><Link className={`${s.button} ${s.secondary}`} href="/salidas">Salidas del club</Link><Link className={`${s.button} ${s.secondary}`} href="/progreso">Mi progreso</Link>{categoryFilter==="trail"&&<Link className={s.button} href="/seguimiento-trail">Registrar salida realizada</Link>}</nav>
+  </div></main>;
+}

@@ -54,3 +54,7 @@ Temporary user, profile, identity, athlete, plan, workout, session, subscription
 The Python runner uses only the standard library and a private fixture JSON input, with a hard guard for the exact TEST API URL. Fixture provisioning and privileged cleanup are orchestration steps; the runner alone does not provision or delete database fixtures. It is not installed as a recurring CI workflow.
 
 Browser navigation remains untested. Vercel environment inspection found the `nh-trail-club-tqiv` project's shared Preview/Production Supabase URL points to production (`mibhnqgkbfirxhurxlfg`), rather than TEST. An existing preview in that project therefore cannot be assumed to be an isolated TEST frontend. No environment settings or deployments were changed.
+
+## Visual training builder
+
+`training-builder.test.mjs` checks structured editing, compatibility and duplication. `training_builder_test_only.sql` is guarded for TEST and rolls all fixtures back. `training_builder_api_test_only.py` uses disposable TEST users provisioned separately; always sign out and remove fixtures afterwards. Never run fixture suites in production. See `training_builder_review.md`.

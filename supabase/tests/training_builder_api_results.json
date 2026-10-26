@@ -1,0 +1,6 @@
+{
+  "environment": "TEST",
+  "status": "blocked",
+  "reason": "HTTP Auth request did not complete from the execution environment; suite stopped without claiming an API pass.",
+  "fixture_users_remaining": 0
+}
