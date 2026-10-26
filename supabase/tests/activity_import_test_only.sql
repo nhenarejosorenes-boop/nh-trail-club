@@ -1,0 +1,54 @@
+-- TEST ONLY: fixtures roll back even after successful assertions.
+create or replace function pg_temp.activity_import_suite() returns jsonb language plpgsql security invoker as $suite$
+declare a uuid:=gen_random_uuid();b uuid:=gen_random_uuid();coach uuid:=gen_random_uuid();sub uuid;own_session uuid;foreign_session uuid;strength uuid;log_id uuid;other_id uuid;r jsonb;p jsonb;denied boolean;checks jsonb:='{}';n int;
+begin
+ if not exists(select 1 from pg_proc where proname='nh_test_paid') then raise exception 'TEST schema required';end if;
+ begin
+  insert into auth.users(id,aud,role) values(a,'authenticated','authenticated'),(b,'authenticated','authenticated'),(coach,'authenticated','authenticated');
+  insert into public.profiles(id,role,full_name) values(a,'athlete','Import fixture A'),(b,'athlete','Import fixture B'),(coach,'admin','Import fixture coach');
+  insert into public.club_subscription_requests(user_id,plan,status) values(a,'plus','approved') returning id into sub;
+  insert into public.club_subscription_monthly_dues(subscription_id,period_month,amount_eur,due_date,status) values(sub,date_trunc('month',current_date)::date,60,current_date,'paid');
+  insert into public.club_subscription_requests(user_id,plan,status) values(b,'plus','approved') returning id into sub;
+  insert into public.club_subscription_monthly_dues(subscription_id,period_month,amount_eur,due_date,status) values(sub,date_trunc('month',current_date)::date,60,current_date,'paid');
+  perform set_config('request.jwt.claims',json_build_object('sub',coach,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  insert into public.weekly_training_plan(athlete_id,session_date,category,title) values(a,current_date,'trail','Own trail') returning id into own_session;
+  insert into public.weekly_training_plan(athlete_id,session_date,category,title) values(b,current_date,'trail','Foreign trail') returning id into foreign_session;
+  insert into public.weekly_training_plan(athlete_id,session_date,category,title) values(a,current_date,'fuerza','Strength') returning id into strength;
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims',json_build_object('sub',a,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  p:=jsonb_build_object('athlete_id',b,'activity_date',current_date-1,'distance_km',10,'elevation_m',450,'duration_minutes',60,'effort',null,'feelings','Buena salida','file_hash',repeat('a',64),'import_key',repeat('b',64),'import_index',0,'file_format','fit','started_at',now()-interval '1 day','import_summary',jsonb_build_object('title','Fixture','duration_seconds',3600,'average_heart_rate',140,'max_heart_rate',170),'linked_session_id',own_session);
+  r:=public.import_trail_activity(p);log_id:=(r->>'id')::uuid;
+  checks:=checks||jsonb_build_object('first_import_created',(r->>'created')::boolean,'owner_derived_from_auth',(select athlete_id=a from public.trail_activity_log where id=log_id),'link_preserved',(select linked_session_id=own_session from public.trail_activity_log where id=log_id),'effort_not_inferred',(select effort is null from public.trail_activity_log where id=log_id),'plan_completion_unchanged',(select not completed from public.weekly_training_plan where id=own_session));
+  update public.trail_activity_log set distance_km=10.5,effort=6,feelings='Corrección' where id=log_id;
+  r:=public.import_trail_activity(p);
+  checks:=checks||jsonb_build_object('retry_same_id',(r->>'id')::uuid=log_id,'retry_not_created',not(r->>'created')::boolean,'retry_preserves_corrections',(select distance_km=10.5 and effort=6 and feelings='Corrección' from public.trail_activity_log where id=log_id));
+  r:=public.import_trail_activity(p||jsonb_build_object('file_hash',repeat('c',64),'file_format','tcx'));
+  checks:=checks||jsonb_build_object('cross_format_same_start_dedup',(r->>'id')::uuid=log_id and not(r->>'created')::boolean);
+  r:=public.import_trail_activity(p||jsonb_build_object('import_key',repeat('d',64)));
+  checks:=checks||jsonb_build_object('exact_file_dedup_even_with_changed_key',(r->>'id')::uuid=log_id and not(r->>'created')::boolean);
+  r:=public.import_trail_activity(p||jsonb_build_object('file_hash',repeat('e',64),'import_key',repeat('f',64),'import_index',1));
+  other_id:=(r->>'id')::uuid;checks:=checks||jsonb_build_object('separate_activity_retained',other_id<>log_id and(r->>'created')::boolean);
+  denied:=false;begin update public.trail_activity_log set file_hash=repeat('1',64) where id=log_id;exception when check_violation then denied:=true;end;checks:=checks||jsonb_build_object('provenance_immutable',denied);
+  denied:=false;begin update public.trail_activity_log set athlete_id=b where id=log_id;exception when check_violation or insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('owner_immutable',denied);
+  denied:=false;begin perform public.import_trail_activity(p||jsonb_build_object('linked_session_id',foreign_session));exception when check_violation then denied:=true;end;checks:=checks||jsonb_build_object('foreign_link_denied',denied);
+  denied:=false;begin update public.trail_activity_log set linked_session_id=strength where id=log_id;exception when check_violation then denied:=true;end;checks:=checks||jsonb_build_object('strength_link_denied',denied);
+  denied:=false;begin perform public.import_trail_activity(p||jsonb_build_object('file_hash',null));exception when check_violation then denied:=true;end;checks:=checks||jsonb_build_object('missing_provenance_denied',denied);
+  denied:=false;begin perform public.import_trail_activity(p||jsonb_build_object('import_summary',jsonb_build_object('title','Fixture','duration_seconds',3600,'gps',jsonb_build_array(1,2))));exception when check_violation then denied:=true;end;checks:=checks||jsonb_build_object('gps_metadata_denied',denied);
+  denied:=false;begin perform public.import_trail_activity(p||jsonb_build_object('activity_date',current_date+2));exception when check_violation then denied:=true;end;checks:=checks||jsonb_build_object('future_date_denied',denied);
+  insert into public.trail_activity_log(athlete_id,activity_date,distance_km,elevation_m,duration_minutes) values(a,current_date,5,100,30);
+  checks:=checks||jsonb_build_object('manual_records_still_work',(select count(*) from public.trail_activity_log where athlete_id=a and source='manual')=1);
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims',json_build_object('sub',b,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  checks:=checks||jsonb_build_object('other_athlete_cannot_read',(select count(*) from public.trail_activity_log where id=log_id)=0);
+  update public.trail_activity_log set feelings='Foreign edit' where id=log_id;get diagnostics n=row_count;checks:=checks||jsonb_build_object('other_athlete_cannot_edit',n=0);
+  r:=public.import_trail_activity(p||jsonb_build_object('linked_session_id',null));checks:=checks||jsonb_build_object('same_file_for_other_owner_is_independent',(r->>'id')::uuid<>log_id and(r->>'created')::boolean);
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims',json_build_object('sub',coach,'role','authenticated')::text,true);perform set_config('role','authenticated',true);
+  checks:=checks||jsonb_build_object('coach_can_read_imports',(select count(*) from public.trail_activity_log where id in(log_id,other_id))=2);
+  update public.trail_activity_log set feelings='Coach edit' where id=log_id;get diagnostics n=row_count;checks:=checks||jsonb_build_object('coach_no_new_write_access',n=0);
+  perform set_config('role','postgres',true);perform set_config('request.jwt.claims','{}',true);perform set_config('role','anon',true);
+  denied:=false;begin perform public.import_trail_activity(p);exception when insufficient_privilege then denied:=true;end;checks:=checks||jsonb_build_object('anonymous_rpc_denied',denied);
+  perform set_config('role','postgres',true);raise exception using errcode='P0002',message='Rollback import fixtures';
+ exception when no_data_found then null;
+ end;
+ return jsonb_build_object('checks',checks,'passed',(select count(*) from jsonb_each(checks) where value='true'::jsonb),'failed',(select count(*) from jsonb_each(checks) where value<>'true'::jsonb),'remaining_users',(select count(*) from auth.users where id in(a,b,coach)),'remaining_imports',(select count(*) from public.trail_activity_log where athlete_id in(a,b)));
+end;
+$suite$;
+select pg_temp.activity_import_suite();

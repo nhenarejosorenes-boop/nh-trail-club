@@ -1,5 +1,5 @@
 export type ProgressSession = { id: string; session_date: string; category: string; title: string; completed: boolean };
-export type TrailEntry = { id: string; activity_date: string; distance_km: number | string; elevation_m: number; duration_minutes: number; effort: number | null; feelings?: string };
+export type TrailEntry = { id: string; activity_date: string; distance_km: number | string; elevation_m: number; duration_minutes: number; effort: number | null; feelings?: string; source?: 'manual'|'file'; file_format?: string|null; linked_session_id?: string|null };
 
 export function athleteToday(at = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(at);

@@ -1,0 +1,31 @@
+// Run after npm run build. Exercises the emitted Turbopack worker, not a browser UI.
+import vm from 'node:vm';
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {Encoder,Profile} from '@garmin/fitsdk';
+const chunks='.next/static/chunks';
+const entry=fs.readdirSync(chunks).filter(f=>f.endsWith('.js')).map(f=>fs.readFileSync(path.join(chunks,f),'utf8')).find(s=>s.includes('activity-import.worker.')&&s.includes('turbopack-worker-'));
+assert.ok(entry,'Missing production import page');
+const config=entry.match(/\.f\("(static\/chunks\/turbopack-worker-[^"]+)",\[(.*?)\]\)/);
+assert.ok(config,'Missing worker bootstrap');
+const params=[JSON.parse('['+config[2]+']').map(p=>'/_next/'+p).reverse(),'','/_next/','',''];
+const location=new URL('https://worker.test/_next/'+config[1]+'#params='+encodeURIComponent(JSON.stringify(params)));
+class WorkerGlobalScope {static [Symbol.hasInstance](){return true;}}
+const scope={location,WorkerGlobalScope,URL,TextDecoder,TextEncoder,ArrayBuffer,Uint8Array,DataView,console,setTimeout,clearTimeout};
+scope.self=scope;scope.postMessage=r=>{scope.result=r;};
+const context=vm.createContext(scope);
+scope.importScripts=(...urls)=>{for(const url of urls){const name=path.join(process.cwd(),'.next',new URL(url).pathname.replace('/_next/',''));vm.runInContext(fs.readFileSync(name,'utf8'),context,{filename:name});}};
+vm.runInContext(fs.readFileSync('.next/'+config[1],'utf8'),context);
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(typeof scope.onmessage,'function','Worker entrypoint did not start');
+const xml='<gpx><trk><trkseg><trkpt lat="40" lon="-3"><ele>100</ele><time>2026-10-25T09:00:00Z</time></trkpt><trkpt lat="40.001" lon="-3"><ele>110</ele><time>2026-10-25T09:10:00Z</time></trkpt></trkseg></trk></gpx>';
+scope.onmessage({data:{name:'run.gpx',buffer:new TextEncoder().encode(xml).buffer}});
+assert.equal(scope.result?.result?.activities[0]?.durationSeconds,600);
+const encoder=new Encoder();encoder.onMesg(Profile.MesgNum.FILE_ID,{type:'activity',manufacturer:'development',product:1,timeCreated:new Date('2026-10-25T09:00:00Z')});
+encoder.onMesg(Profile.MesgNum.SESSION,{sport:'running',startTime:new Date('2026-10-25T09:00:00Z'),totalTimerTime:600,totalDistance:1500,totalAscent:10});
+const fit=encoder.close();scope.onmessage({data:{name:'run.fit',buffer:fit.buffer.slice(fit.byteOffset,fit.byteOffset+fit.byteLength)}});
+assert.equal(scope.result?.result?.activities[0]?.distanceKm,1.5);
+scope.onmessage({data:{name:'bad.gpx',buffer:new TextEncoder().encode('<gpx>').buffer}});
+assert.ok(scope.result?.error);
+console.log('Production worker: GPX, Garmin FIT and invalid-file handling passed.');

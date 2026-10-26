@@ -7,7 +7,7 @@ export async function loadTrailMonth(client: SupabaseClient, userId: string, ran
   const pageSize = 500;
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await client.from("trail_activity_log")
-      .select("id,activity_date,distance_km,elevation_m,duration_minutes,effort,feelings")
+      .select("id,activity_date,distance_km,elevation_m,duration_minutes,effort,feelings,source,file_format,linked_session_id")
       .eq("athlete_id", userId).gte("activity_date", range.start).lt("activity_date", range.end)
       .order("activity_date", { ascending: false }).order("id", { ascending: false })
       .range(offset, offset + pageSize - 1);
