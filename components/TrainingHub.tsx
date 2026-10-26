@@ -8,6 +8,7 @@ import { membershipLabels, type MembershipAccess } from "@/lib/membership-model"
 import styles from "./athlete-panels.module.css";
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
 const panels = [
+  { title: "Mi entrenador", text: "Conversación privada con el equipo entrenador, dudas sobre sesiones y mensajes del club.", icon: "✉", href: "/mensajes", premium: false },
   { title: "Mi planificación semanal", text: "Sesiones por semana, indicaciones del entrenador y registro de sesiones completadas.", icon: "📅", href: "/entrenamientos/plan", premium: true },
   { title: "Entrenamiento de fuerza", text: "Sesiones de fuerza prescritas, ejercicios e indicaciones de series, repeticiones y cargas.", icon: "💪", href: "/entrenamientos/fuerza", premium: true },
   { title: "Entrenamiento Trail Running", text: "Plan de carrera y montaña, objetivos de cada sesión y acceso al registro de salidas.", icon: "⛰", href: "/entrenamientos/trail", premium: true },

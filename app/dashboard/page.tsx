@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import styles from "./dashboard.module.css";
 import MembershipNotice from "@/components/MembershipNotice";
+import MessagingShortcut from "@/components/MessagingShortcut";
 import { loadMembershipAccess } from "@/lib/membership-client";
 import { membershipLabels, type MembershipAccess } from "@/lib/membership-model";
 
@@ -72,7 +73,7 @@ export default function DashboardPage() {
  const completed=trainings.filter(s=>s.completed).length;
  if(!loading&&!membership?.club)return <MembershipNotice access={membership} error={!membership} />;
 
- const navigation=[{icon:"⌂",label:"Inicio",href:"/dashboard"},{icon:"◫",label:"Plan semanal",href:"/entrenamientos/plan"},{icon:"↗",label:"Entrenamientos",href:"/entrenamientos"},{icon:"△",label:"Salidas del club",href:"/salidas"},{icon:"▥",label:"Mi progreso",href:"/progreso"},{icon:"★",label:"PLUS / Performance",href:"/suscripciones"},{icon:"◷",label:"Mis cuotas y avisos",href:"/mis-cuotas"},...(role==="admin"?[{icon:"♙",label:"Deportistas",href:"/deportistas"},{icon:"▤",label:"Panel entrenador",href:"/entrenador/seguimiento"},{icon:"★",label:"Gestión PLUS",href:"/admin/suscripciones"},{icon:"⚙",label:"Administración",href:"/admin"}]:[])];
+ const navigation=[{icon:"⌂",label:"Inicio",href:"/dashboard"},{icon:"✉",label:role==="admin"?"Mensajes":"Mi entrenador",href:"/mensajes"},{icon:"◫",label:"Plan semanal",href:"/entrenamientos/plan"},{icon:"↗",label:"Entrenamientos",href:"/entrenamientos"},{icon:"△",label:"Salidas del club",href:"/salidas"},{icon:"▥",label:"Mi progreso",href:"/progreso"},{icon:"★",label:"PLUS / Performance",href:"/suscripciones"},{icon:"◷",label:"Mis cuotas y avisos",href:"/mis-cuotas"},...(role==="admin"?[{icon:"♙",label:"Deportistas",href:"/deportistas"},{icon:"▤",label:"Panel entrenador",href:"/entrenador/seguimiento"},{icon:"★",label:"Gestión PLUS",href:"/admin/suscripciones"},{icon:"⚙",label:"Administración",href:"/admin"}]:[])];
  return <main className={styles.shell}>
   <aside className={styles.sidebar}>
    <Link href="/dashboard" className={styles.brand}><span className={styles.brandMark}>NH<span>⌁</span></span><small>CLUB TRAIL RUNNING ALICANTE</small></Link>
@@ -88,6 +89,7 @@ export default function DashboardPage() {
    </header>
    <div className={styles.inner}>
     {error&&<p className={styles.error} role="alert">{error}</p>}
+    {!loading && membership?.club && <MessagingShortcut admin={role === "admin"} />}
     {membership?.plan&&<p style={{color:"#ffad5c",fontWeight:800}}>Mi modalidad: {membershipLabels[membership.plan]}</p>}
     {paymentAlert&&paymentAlert.count>0&&<section role="status" style={{background:"#2a211b",border:"1px solid #f18b35",borderLeft:"5px solid #f18b35",borderRadius:12,padding:"17px 20px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",gap:14,flexWrap:"wrap"}}>
      <div><strong style={{color:"#ffae63",fontSize:18}}>◷ Avisos de cuotas del club ({paymentAlert.count})</strong><p style={{margin:"7px 0 0",color:"#e7d8ca"}}>{paymentAlert.overdue>0?paymentAlert.overdue+" vencida(s) · ":""}{paymentAlert.upcoming>0?paymentAlert.upcoming+" próxima(s) a vencer · ":""}{paymentAlert.amount.toLocaleString("es-ES",{style:"currency",currency:"EUR"})} en cuotas registradas con aviso</p></div>
