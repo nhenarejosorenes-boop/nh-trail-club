@@ -30,6 +30,7 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [membership, setMembership] = useState<MembershipAccess | null>(null);
   const [accessError, setAccessError] = useState(false);
   const [title, setTitle] = useState("");
@@ -43,7 +44,7 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
   const titleInput = useRef<HTMLInputElement>(null);
 
   function clearEditor() {
-    setEditingId(null); setTitle(""); setDetails(""); setExercises([]);
+    setEditingId(null); setTitle(""); setDetails(""); setExercises([]); setSaveError("");
     setTrailTarget({ distance: "", elevation: "", minutes: "", effort: "" });
   }
   function editSession(session: Session) {
@@ -119,9 +120,14 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
   }
   async function add(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); if (!admin || !showEditor || !selected || busy) return;
-    if (!title.trim()) { setError("Escribe el título de la sesión."); return; }
+    setMessage(""); setSaveError("");
+    if (!title.trim()) { setSaveError("Escribe el título de la sesión para poder guardarla."); titleInput.current?.focus(); return; }
+    if (!e.currentTarget.checkValidity()) {
+      setSaveError("Revisa los campos de la sesión: hay un dato obligatorio vacío o un valor fuera del rango permitido.");
+      e.currentTarget.reportValidity(); return;
+    }
     const start = new Date(week+"T12:00:00"); const end = new Date(start); end.setDate(end.getDate()+7);
-    if (date < dateString(start) || date >= dateString(end)) { setError("Selecciona una fecha dentro de la semana visible."); return; }
+    if (date < dateString(start) || date >= dateString(end)) { setSaveError("Selecciona una fecha dentro de la semana visible."); return; }
     setBusy(true); setError(""); setMessage("");
     try {
     const prescribed = category === "fuerza" ? exercises.filter(row => row.name.trim()).map((row, i) =>
@@ -131,10 +137,10 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
     const record = { session_date: date, category, title: title.trim(), details: sessionDetails };
     const result = editingId ? await supabase.from("weekly_training_plan").update(record).eq("id", editingId).eq("athlete_id", selected).select("id") :
       await supabase.from("weekly_training_plan").insert({ ...record, athlete_id: selected }).select("id");
-    if (result.error) setError(result.error.message);
-    else if (!result.data?.length) setError("No se pudo guardar la sesión. Actualiza la planificación e inténtalo de nuevo.");
+    if (result.error) setSaveError("No se pudo guardar la sesión: " + result.error.message);
+    else if (!result.data?.length) setSaveError("No se pudo guardar la sesión. Actualiza la planificación e inténtalo de nuevo.");
     else { setMessage(editingId ? "Sesión actualizada." : "Sesión programada."); clearEditor(); await refresh(); }
-    } catch { setError("No se pudo guardar la sesión. Comprueba tu conexión."); }
+    } catch { setSaveError("No se pudo confirmar el guardado. Comprueba tu conexión y la planificación antes de volver a guardar."); }
     finally { setBusy(false); }
   }
   async function toggle(s: Session) {
@@ -208,12 +214,12 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
         </article>)}
       {admin && showEditor && <section style={{ ...card, marginTop:30 }}>
         <h2>{editingId ? "Editar sesión" : "Programar sesión"}</h2>
-        <form onSubmit={add}>
+        <form onSubmit={add} noValidate aria-busy={busy}>
           <label>Fecha<input style={input} type="date" value={date} min={week} max={dateString(weekEnd)} onChange={e=>setDate(e.target.value)} required /></label>
           <label>Tipo<select style={input} value={category} onChange={e=>setCategory(e.target.value)}>
             <option value="trail">Trail</option><option value="fuerza">Fuerza</option><option value="movilidad">Movilidad</option><option value="descanso">Descanso</option>
           </select></label>
-          <label>Título<input ref={titleInput} style={input} value={title} onChange={e=>setTitle(e.target.value)} required maxLength={120} /></label>
+          <label>Título (obligatorio)<input ref={titleInput} style={input} value={title} placeholder="Ej.: Fuerza de tren inferior" onChange={e=>setTitle(e.target.value)} required maxLength={120} aria-describedby="session-save-help" /></label>
           <label>Indicaciones<textarea style={input} value={details} onChange={e=>setDetails(e.target.value)} rows={4} /></label>
           {category === "fuerza" && <section style={{ marginBottom: 22 }}><h3>Ejercicios de fuerza</h3><p style={{ color: "#bbb" }}>Añade los ejercicios prescritos. Se guardarán junto a las indicaciones de esta sesión.</p>
             {exercises.map((row, index) => <fieldset key={row.id} style={{ border: "1px solid #555", borderRadius: 10, padding: 16, marginBottom: 14 }}><legend>Ejercicio {index + 1}</legend>
@@ -233,7 +239,10 @@ export default function TrainingPlan({ categoryFilter, showEditor = false }: Tra
             <label>Duración (minutos)<input style={input} type="number" min="1" max="10080" step="1" value={trailTarget.minutes} onChange={e => setTrailTarget(t => ({ ...t, minutes: e.target.value }))} /></label>
             <label>Esfuerzo (1–10)<input style={input} type="number" min="1" max="10" step="1" value={trailTarget.effort} onChange={e => setTrailTarget(t => ({ ...t, effort: e.target.value }))} /></label>
           </div></fieldset>}
-          <button style={button} disabled={busy || !title.trim()}>{busy ? "Guardando..." : editingId ? "Guardar cambios" : "Guardar sesión"}</button>
+          <p id="session-save-help" style={{ color: "#bbb" }}>Completa la fecha y el título. Al guardar, la sesión aparecerá en la semana del deportista seleccionado.</p>
+          {saveError && <p role="alert" style={{ color: "#ff9999" }}>{saveError}</p>}
+          {message && <p role="status" style={{ color: "#8fddaa" }}>{message}</p>}
+          <button type="submit" style={{ ...button, opacity: busy ? 0.6 : 1, cursor: busy ? "wait" : "pointer" }} disabled={busy}>{busy ? "Guardando..." : editingId ? "Guardar cambios" : "Guardar sesión"}</button>
           {editingId && <button type="button" disabled={busy} style={{ ...button, marginLeft: 12, background: "#333", color: "white" }} onClick={clearEditor}>Cancelar edición</button>}
         </form>
       </section>}
