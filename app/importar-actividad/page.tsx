@@ -6,6 +6,7 @@ import type {ActivityFile} from '@/lib/activity-import';
 import {activityKey,importedDraft,likelySameActivity,sha256} from '@/lib/activity-import-review';
 import {trailRecord,type TrailDraft} from '@/lib/trail-log';
 import {athleteToday,type TrailEntry} from '@/lib/training-progress';
+import { loadTrailSessionChoices, trailLinkContext } from '@/lib/trail-session-link';
 import styles from '@/components/athlete-panels.module.css';
 
 const supabase=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
@@ -16,10 +17,11 @@ export default function ImportActivity(){
   const [draft,setDraft]=useState<TrailDraft|null>(null),[plans,setPlans]=useState<Plan[]>([]),[entries,setEntries]=useState<TrailEntry[]>([]),[linked,setLinked]=useState('');
   const [busy,setBusy]=useState(false),[checking,setChecking]=useState(false),[ready,setReady]=useState(false),[ack,setAck]=useState(false),[confirmed,setConfirmed]=useState(false);
   const [error,setError]=useState(''),[checkError,setCheckError]=useState(''),[message,setMessage]=useState(''),[reload,setReload]=useState(0),[saved,setSaved]=useState<Record<number,string>>({});
+  const [requestedSession,setRequestedSession]=useState('');
   const lock=useRef(false),worker=useRef<Worker|null>(null),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
   useEffect(()=>{
     let active=true;
-    supabase.auth.getUser().then(({data,error})=>{if(!active)return;if(error||!data.user){window.location.replace('/login');return;}setUid(data.user.id);}).catch(()=>{if(active)setError('No se pudo comprobar tu sesión. Recarga la página.');});
+    supabase.auth.getUser().then(({data,error})=>{if(!active)return;if(error||!data.user){window.location.replace('/login');return;}setRequestedSession(trailLinkContext(new URLSearchParams(window.location.search),athleteToday()).session);setUid(data.user.id);}).catch(()=>{if(active)setError('No se pudo comprobar tu sesión. Recarga la página.');});
     return()=>{active=false;worker.current?.terminate();if(timer.current)clearTimeout(timer.current);};
   },[]);
   useEffect(()=>{
@@ -29,13 +31,11 @@ export default function ImportActivity(){
       // Fetch the complete matching day; pagination prevents silently missing duplicates.
       const rows:TrailEntry[]=[];
       for(let from=0;;from+=500){const r=await supabase.from('trail_activity_log').select('id,activity_date,distance_km,elevation_m,duration_minutes,effort,feelings').eq('athlete_id',uid).eq('activity_date',draft.date).order('id').range(from,from+499);if(r.error)throw r.error;rows.push(...r.data);if(r.data.length<500)break;}
-      const start=new Date(draft.date+'T12:00:00Z'),end=new Date(start);start.setUTCDate(start.getUTCDate()-7);end.setUTCDate(end.getUTCDate()+7);
-      const plan:Plan[]=[];
-      for(let from=0;;from+=500){const r=await supabase.from('weekly_training_plan').select('id,session_date,title').eq('athlete_id',uid).eq('category','trail').gte('session_date',start.toISOString().slice(0,10)).lte('session_date',end.toISOString().slice(0,10)).order('session_date').order('id').range(from,from+499);if(r.error)throw r.error;plan.push(...r.data);if(r.data.length<500)break;}
-      if(active){setEntries(rows);setPlans(plan);setReady(true);}
+      const plan=await loadTrailSessionChoices(supabase,uid,draft.date,requestedSession);
+      if(active){setEntries(rows);setPlans(plan);setLinked(plan.some(p=>p.id===requestedSession)?requestedSession:'');setReady(true);}
     })().catch(()=>{if(active)setCheckError('No se pudo comprobar el historial y el plan. Reintenta antes de guardar.');}).finally(()=>{if(active)setChecking(false);});
     return()=>{active=false;};
-  },[uid,draft?.date,reload]);
+  },[uid,draft?.date,reload,requestedSession]);
   async function read(selected:File|undefined){
     if(!selected||lock.current)return;
     setError('');setMessage('');setFile(null);setDraft(null);setSaved({});setConfirmed(false);setReady(false);
@@ -105,7 +105,7 @@ export default function ImportActivity(){
           <label>Esfuerzo percibido (RPE)<select className={styles.field} value={draft.effort} onChange={e=>change('effort',e.target.value)}><option value="">Sin indicar</option>{Array.from({length:10},(_,i)=><option key={i+1} value={i+1}>{i+1}/10</option>)}</select></label>
           <label>Vincular a una sesión del plan<select className={styles.field} value={linked} onChange={e=>setLinked(e.target.value)}><option value="">Sin vincular</option>{plans.map(p=><option key={p.id} value={p.id}>{p.session_date} · {p.title}</option>)}</select></label>
         </div>
-        <p className={styles.note}>Se muestran tus sesiones de trail de los siete días anteriores y posteriores. Vincular la salida no marca la sesión como completada. El RPE lo indicas tú; no se deduce de la frecuencia cardiaca.</p>
+        <p className={styles.note}>Se muestran tus sesiones de trail de los siete días anteriores y posteriores y la sesión desde la que has accedido, si sigue disponible. Vincular la salida no marca la sesión como completada. El RPE lo indicas tú; no se deduce de la frecuencia cardiaca.</p>
         <label>Sensaciones<textarea className={styles.field} style={{width:'100%',boxSizing:'border-box'}} rows={3} maxLength={1000} value={draft.feelings} onChange={e=>change('feelings',e.target.value)}/></label>
         {possible.length>0&&<div><p className={styles.pending}>Hay {possible.length} salida(s) con fecha, distancia y duración similares. Revisa el historial antes de añadir otra.</p><label><input type="checkbox" checked={ack} onChange={e=>setAck(e.target.checked)}/> He revisado el historial y corresponde a otra salida.</label></div>}
         <p><label><input type="checkbox" required checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> Confirmo que es una actividad realizada de carrera o senderismo y que los datos son correctos.</label></p>
