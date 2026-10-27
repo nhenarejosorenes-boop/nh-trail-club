@@ -66,6 +66,9 @@ export default function TrainingPlan({categoryFilter,showEditor=false}:{category
       const uid=auth.data.user.id;setUserId(uid);const access=await loadMembershipAccess(supabase,uid);if(!active)return;setMembership(access);
       if(!access.premium){setLoading(false);return;}
       let target=uid;
+      const ownParams=new URLSearchParams(window.location.search);
+      const ownContext=plannerContext([],uid,null,ownParams.get("date"));
+      if(ownContext.week){setWeek(ownContext.week);setDate(ownParams.get("date")!);if(ownParams.get("session"))setDay(ownParams.get("date")!);}
       if(access.state==="admin"){
         setAdmin(true);const linked=(await loadCoachAthletes(supabase)).filter(a=>a.user_id!==null);if(!active)return;setAthletes(linked);
         const params=new URLSearchParams(window.location.search);const requestedType=params.get("type");if(showEditor&&isCategory(requestedType)){setCreationCategory(requestedType);setCategoryChosen(true);setDraft(emptyDraft(requestedType));}const context=plannerContext(linked,uid,params.get("athlete"),params.get("date"));target=context.athleteId;
