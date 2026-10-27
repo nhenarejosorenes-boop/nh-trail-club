@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { athleteToday, monthRange, trainingProgress, type TrailEntry } from "@/lib/training-progress";
 import { loadTrailMonth, trailRecord, type TrailDraft } from "@/lib/trail-log";
+import { loadTrailSessionChoices, trailLinkContext, type TrailSessionChoice } from "@/lib/trail-session-link";
 import styles from "@/components/athlete-panels.module.css";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
@@ -26,7 +27,15 @@ export default function SeguimientoTrail() {
   const [draft, setDraft] = useState<TrailDraft>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const formSection = useRef<HTMLElement>(null);
+  const [linked, setLinked] = useState("");
+  const [choices, setChoices] = useState<TrailSessionChoice[]>([]);
+  const [choiceKey, setChoiceKey] = useState("");
+  const [choiceError, setChoiceError] = useState("");
+  const [choiceReload, setChoiceReload] = useState(0);
   const today = athleteToday();
+  const expectedChoiceKey = uid + ":" + draft.date + ":" + linked;
+  const choicesReady = choiceKey === expectedChoiceKey && !choiceError;
+  const linkValid = !linked || choices.some(p => p.id === linked);
   const waiting = loading || loadedMonth !== month;
 
   useEffect(() => {
@@ -36,6 +45,8 @@ export default function SeguimientoTrail() {
         const { data, error: authError } = await supabase.auth.getUser();
         if (!active) return;
         if (authError || !data.user) { window.location.replace("/login"); return; }
+        const context = trailLinkContext(new URLSearchParams(window.location.search), athleteToday());
+        setDraft(d => ({ ...d, date: context.date })); setMonth(context.date.slice(0, 7)); setLinked(context.session);
         setUid(data.user.id);
       } catch { if (active) { setLoadError("No se pudo comprobar tu sesión. Vuelve a cargar la página."); setLoading(false); } }
     })();
@@ -56,11 +67,20 @@ export default function SeguimientoTrail() {
     return () => { active = false; };
   }, [uid, month, reload]);
 
+  useEffect(() => {
+    if (!uid) return;
+    let active = true; setChoiceError(""); setChoiceKey("");
+    loadTrailSessionChoices(supabase, uid, draft.date, linked).then(rows => {
+      if (active) { setChoices(rows); setChoiceKey(expectedChoiceKey); }
+    }).catch(() => { if (active) setChoiceError("No se pudieron comprobar las sesiones de tu plan."); });
+    return () => { active = false; };
+  }, [uid, draft.date, linked, expectedChoiceKey, choiceReload]);
+
   function change(fieldName: keyof TrailDraft, value: string) { setDraft(d => ({ ...d, [fieldName]: value })); }
-  function clearEditor() { setEditingId(null); setDraft(emptyDraft()); }
+  function clearEditor() { setEditingId(null); setDraft(emptyDraft()); setLinked(""); }
   function edit(entry: TrailEntry) {
     if (operationInFlight.current) return;
-    setEditingId(entry.id);
+    setEditingId(entry.id); setLinked(entry.linked_session_id ?? "");
     setDraft({ date: entry.activity_date, distance: String(entry.distance_km), elevation: String(entry.elevation_m), duration: String(entry.duration_minutes), effort: entry.effort === null ? "" : String(entry.effort), feelings: entry.feelings ?? "" });
     setError(""); setMessage("");
     formSection.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -69,8 +89,9 @@ export default function SeguimientoTrail() {
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!uid || operationInFlight.current) return;
+    if (!choicesReady || !linkValid) { setError("Comprueba la sesión vinculada antes de guardar o selecciona Sin vincular."); return; }
     let record;
-    try { record = trailRecord(draft, today); }
+    try { record = { ...trailRecord(draft, today), linked_session_id: linked || null }; }
     catch (e) { setError(e instanceof Error ? e.message : "Revisa los campos del entrenamiento."); return; }
     operationInFlight.current = true; setBusy(true); setError(""); setMessage("");
     try {
@@ -131,8 +152,12 @@ export default function SeguimientoTrail() {
         <label>Desnivel positivo (m)<input className={styles.field} style={field} type="number" min="0" max="30000" step="1" value={draft.elevation} onChange={e => change("elevation", e.target.value)} required /></label>
         <label>Duración (minutos)<input className={styles.field} style={field} type="number" min="1" max="10080" step="1" value={draft.duration} onChange={e => change("duration", e.target.value)} required /></label>
         <label>Esfuerzo percibido (1–10)<select className={styles.field} style={field} value={draft.effort} onChange={e => change("effort", e.target.value)}><option value="">Sin indicar</option>{Array.from({ length: 10 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select></label>
+        <label>Sesión de trail vinculada<select className={styles.field} style={field} value={linked} disabled={!choicesReady} onChange={e => setLinked(e.target.value)}><option value="">Sin vincular</option>{linked && !choices.some(p => p.id === linked) && <option value={linked}>Sesión no disponible: selecciona otra o Sin vincular</option>}{choices.map(p => <option key={p.id} value={p.id}>{p.session_date} · {p.title}</option>)}</select></label>
+        <div className={styles.note} style={{ gridColumn: "1/-1" }}>Puedes vincular, cambiar o quitar la sesión sin duplicar la salida. Se muestran sesiones próximas y la sesión vinculada actual. Vincular no marca la sesión como completada.
+          {choiceError ? <p role="alert">{choiceError} <button type="button" className={styles.field} onClick={() => setChoiceReload(n => n + 1)}>Reintentar sesiones</button></p> : !choicesReady ? <p role="status">Comprobando sesiones…</p> : !linkValid ? <p role="alert">La sesión no está disponible. Selecciona otra o Sin vincular.</p> : null}
+        </div>
         <label style={{ gridColumn: "1/-1" }}>Sensaciones<textarea className={styles.field} style={field} rows={3} maxLength={1000} value={draft.feelings} onChange={e => change("feelings", e.target.value)} placeholder="Cómo te has encontrado, terreno, molestias..." /></label>
-        <button style={button}>{busy ? "Guardando..." : editingId ? "Guardar cambios" : "Guardar salida"}</button>
+        <button style={button} disabled={!choicesReady || !linkValid}>{busy ? "Guardando..." : editingId ? "Guardar cambios" : "Guardar salida"}</button>
         {editingId && <button type="button" className={styles.field} onClick={clearEditor}>Cancelar edición</button>}
       </fieldset></form>
     </section>
@@ -142,7 +167,8 @@ export default function SeguimientoTrail() {
           <div style={{ display: "flex", gap: 12 }}><button type="button" style={button} disabled={busy} aria-label={"Editar salida del " + entry.activity_date} onClick={() => edit(entry)}>Editar</button><button type="button" className={styles.field} disabled={busy} aria-label={"Eliminar salida del " + entry.activity_date} onClick={() => void remove(entry.id)}>Eliminar</button></div>
         </div>
         <p>{Number(entry.distance_km).toFixed(2)} km · {entry.elevation_m} m+ · {entry.duration_minutes} min {entry.effort !== null ? "· Esfuerzo " + entry.effort + "/10" : ""}</p>
-        {entry.source === 'file' && <p className={styles.badge}>Importada de {entry.file_format?.toUpperCase()}{entry.linked_session_id ? ' · Vinculada al plan' : ''}</p>}
+        {entry.source === 'file' && <p className={styles.badge}>Importada de {entry.file_format?.toUpperCase()}</p>}
+        {entry.linked_session_id && <p><Link className={styles.link} href="/entrenamientos/trail">Vinculada al plan · Ver comparación →</Link></p>}
         {entry.feelings && <p className={styles.intro} style={{ whiteSpace: "pre-wrap" }}>{entry.feelings}</p>}
       </article>))}
     </section>

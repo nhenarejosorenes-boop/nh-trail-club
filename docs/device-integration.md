@@ -53,3 +53,32 @@ Requisitos para activar la siguiente fase:
 - Disponer de Activity API y documentación de evaluación para el nivel aprobado.
 - Configurar credenciales exclusivamente en servidor, callbacks y eventos según esa documentación.
 - Validar consentimiento, revocación, duplicados, reintentos y una actividad real antes de anunciar la conexión.
+
+## Comparación con el plan semanal
+
+Las vistas de trail y planificación incluyen «Trail: previsto y realizado», para el
+corredor y el administrador al seleccionar al deportista. Solo se comparan salidas
+vinculadas expresamente a la sesión y pertenecientes al mismo corredor. La consulta
+por identificadores incluye actividades realizadas fuera de la semana prescrita.
+La prescripción es la versión actual de la sesión, no una instantánea histórica.
+
+Distancia, desnivel y tiempo se suman si hay varias salidas vinculadas. El RPE es la
+media ponderada por duración solo si todas tienen esfuerzo indicado. Un objetivo
+vacío no se interpreta como cero; un objetivo explícito de 0 m+ sí es válido. No se
+interpretan bloques de texto ni se asignan porcentajes de cumplimiento o valoraciones
+clínicas. Se mantiene independiente la marca de sesión completada. El botón de
+actualizar permite consultar correcciones hechas en otra pestaña.
+
+No requiere migraciones: utiliza linked_session_id y las políticas existentes. Se
+validan matemáticas, aislamiento de corredor, fechas, paginación y fallos de consulta
+con pruebas automatizadas; sigue pendiente la comprobación con una sesión real.
+
+## Paquete de flujo de actividades y seguimiento
+
+- Comparación de prescripción actual y actividades expresamente vinculadas.
+- Selección, cambio y retirada de vínculo al crear o editar salidas manuales e importadas ya existentes, conservando procedencia inmutable.
+- Accesos desde una sesión propia a importar o registrar, con preselección validada por propietario y categoría trail. Los parámetros de URL nunca autorizan acceso.
+- Selector con sesiones de ±7 días y conservación de la sesión actual fuera del intervalo; no se descarta un vínculo al cambiar la fecha.
+- Panel entrenador con origen, vínculo y recuento de salidas sin esfuerzo percibido.
+
+Publicación conjunta de estos cambios. Sin migraciones, sin cambios de permisos y sin activar Garmin.

@@ -24,7 +24,7 @@ export function loadCoachAthletes(client: SupabaseClient) {
 export async function loadCoachMonth(client: SupabaseClient, range: { start: string; end: string }) {
   const [logs, plans] = await Promise.all([
     pages<CoachLog>((from, to) => client.from("trail_activity_log")
-      .select("id,athlete_id,activity_date,distance_km,elevation_m,duration_minutes,effort")
+      .select("id,athlete_id,activity_date,distance_km,elevation_m,duration_minutes,effort,source,file_format,linked_session_id")
       .gte("activity_date", range.start).lt("activity_date", range.end)
       .order("activity_date", { ascending: false }).order("id").range(from, to)),
     pages<CoachPlan>((from, to) => client.from("weekly_training_plan")
