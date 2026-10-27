@@ -33,3 +33,23 @@ Registrar identificador externo y revisiones de la prescripción, errores y acep
 ## Verificación pendiente
 
 Compilación y pruebas de parser/base de datos no sustituyen una prueba con sesión real del corredor. Falta recorrer selección de archivo → revisión → guardado → historial en un navegador autenticado con un archivo real del dispositivo. Para Garmin en vivo también falta el acceso empresarial anterior.
+
+## Panel de dispositivos (27 de octubre de 2026)
+
+Ruta `/dispositivos`, accesible desde entrenamientos y desde importar actividad.
+Muestra el historial propio de archivos confirmados, ordenado por guardado con
+páginas de 20 registros y consulta de un registro adicional para detectar la página
+siguiente. Filtra por `athlete_id` y `source=file`, manteniendo las RLS existentes.
+No muestra un historial vacío cuando falla la consulta: ofrece reintento. Una
+actualización vuelve a la primera página y los datos anteriores se ocultan durante
+la carga y al cerrar sesión. Los valores son los corregidos actualmente por el corredor.
+
+No se ha activado la sincronización automática ni el envío al reloj. Sigue pendiente
+obtener el acceso aprobado de NH Trail Club a Garmin, sus credenciales y el contrato
+técnico de OAuth/webhooks. No se necesitan migraciones ni nuevas variables para este panel.
+
+Requisitos para activar la siguiente fase:
+- Solicitar acceso de organización en https://developerportal.garmin.com/developer-programs/connect-developer-api.
+- Disponer de Activity API y documentación de evaluación para el nivel aprobado.
+- Configurar credenciales exclusivamente en servidor, callbacks y eventos según esa documentación.
+- Validar consentimiento, revocación, duplicados, reintentos y una actividad real antes de anunciar la conexión.
