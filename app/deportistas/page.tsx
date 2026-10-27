@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { loadAthleteRoster } from "@/lib/athlete-detail";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -16,9 +17,11 @@ type Deportista = {
   telefono: string | null;
   nivel: string | null;
   created_at: string;
+  user_id: string | null;
 };
 
 export default function DeportistasPage() {
+  const writing = useRef(false);
   const [deportistas, setDeportistas] = useState<Deportista[]>([]);
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
@@ -30,6 +33,7 @@ export default function DeportistasPage() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [autorizado, setAutorizado] = useState(false);
   const [verificando, setVerificando] = useState(true);
@@ -37,18 +41,11 @@ export default function DeportistasPage() {
   async function cargarDeportistas() {
     setCargando(true);
 
-    const { data, error } = await supabase
-      .from("deportistas")
-      .select("*")
-      .order("created_at", { ascending: false });
+    setLoadError("");
+    try { setDeportistas(await loadAthleteRoster(supabase)); }
+    catch { setLoadError("No se pudo cargar el listado completo. Reintenta para comprobarlo."); }
+    finally { setCargando(false); }
 
-    if (error) {
-      setMensaje("Error al cargar: " + error.message);
-    } else {
-      setDeportistas(data ?? []);
-    }
-
-    setCargando(false);
   }
 
   useEffect(() => {
@@ -108,11 +105,13 @@ export default function DeportistasPage() {
 
   async function guardarDeportista(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!nombre.trim() || guardando) return;
+    if (!autorizado || !nombre.trim() || writing.current) return;
+    writing.current = true;
 
     setGuardando(true);
     setMensaje("");
 
+    try {
     const datos = {
       nombre: nombre.trim(),
       email: email.trim() || null,
@@ -153,16 +152,19 @@ export default function DeportistasPage() {
       }
     }
 
-    setGuardando(false);
+    } catch { setMensaje("No se pudo confirmar el guardado. Comprueba el listado antes de reintentar."); }
+    finally { writing.current = false; setGuardando(false); }
   }
 
   async function eliminarDeportista(id: string) {
-    if (guardando || eliminandoId) return;
+    if (!autorizado || writing.current) return;
     if (!window.confirm("¿Eliminar definitivamente este deportista?")) return;
 
+    writing.current = true;
     setEliminandoId(id);
     setMensaje("");
 
+    try {
     const { data, error } = await supabase
       .from("deportistas")
       .delete()
@@ -179,7 +181,8 @@ export default function DeportistasPage() {
       setMensaje("Deportista eliminado correctamente.");
     }
 
-    setEliminandoId(null);
+    } catch { setMensaje("No se pudo confirmar la eliminación. Vuelve a cargar el listado para comprobar el estado."); }
+    finally { writing.current = false; setEliminandoId(null); }
   }
 
   const filtrados = deportistas.filter((d) =>
@@ -243,7 +246,7 @@ export default function DeportistasPage() {
         <section style={{ ...tarjeta, marginTop: "30px" }}>
           <h2>Deportistas registrados</h2>
           <h1 style={{ color: "#ff8c28" }}>
-            {cargando ? "..." : deportistas.length}
+            {cargando || loadError ? "—" : deportistas.length}
           </h1>
 
           <button
@@ -252,7 +255,7 @@ export default function DeportistasPage() {
             onClick={() =>
               mostrarFormulario ? limpiarFormulario() : nuevoDeportista()
             }
-            disabled={guardando}
+            disabled={guardando || eliminandoId !== null}
           >
             {mostrarFormulario ? "Cancelar" : "+ Añadir deportista"}
           </button>
@@ -350,11 +353,12 @@ export default function DeportistasPage() {
 
           {cargando && <p>Cargando deportistas...</p>}
 
-          {!cargando && filtrados.length === 0 && (
+          {loadError && <div role="alert"><p>{loadError}</p><button type="button" style={boton} disabled={cargando} onClick={() => void cargarDeportistas()}>Reintentar listado</button></div>}
+          {!cargando && !loadError && filtrados.length === 0 && (
             <p>No hay deportistas para mostrar.</p>
           )}
 
-          {filtrados.map((d) => (
+          {!cargando && !loadError && filtrados.map((d) => (
             <div
               key={d.id}
               style={{
@@ -366,6 +370,7 @@ export default function DeportistasPage() {
               }}
             >
               <h3 style={{ color: "#ff8c28" }}>{d.nombre}</h3>
+              <p style={{color:d.user_id?"#8fddaa":"#ffbd75"}}>{d.user_id?"Cuenta vinculada":"Sin cuenta vinculada"}</p>
               <p>Nivel: {d.nivel || "Sin especificar"}</p>
               <p>Correo: {d.email || "Sin especificar"}</p>
               <p>Teléfono: {d.telefono || "Sin especificar"}</p>

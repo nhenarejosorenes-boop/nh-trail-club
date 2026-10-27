@@ -1,141 +1,39 @@
-
 "use client";
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import Link from 'next/link';
+import { createClient } from '@supabase/supabase-js';
+import AthleteOverview from '@/components/AthleteOverview';
+import { AthleteAccessError, loadAthleteCard, type AthleteCard } from '@/lib/athlete-detail';
+import styles from '@/components/athlete-panels.module.css';
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
-
-type Deportista = {
-  id: string;
-  nombre: string;
-  email: string | null;
-  telefono: string | null;
-  nivel: string | null;
-  created_at: string;
-  user_id: string | null;
-};
-
-export default function FichaDeportistaPage() {
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+export default function AthleteCardPage() {
   const params = useParams();
-  const id = params.id as string;
-
-  const [deportista, setDeportista] =
-    useState<Deportista | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState("");
-
+  const id = typeof params.id === 'string' ? params.id : '';
+  const [reload, setReload] = useState(0);
+  const [result, setResult] = useState<{ key: string; card: AthleteCard | null; error: string } | null>(null);
+  const key = id + ':' + reload;
   useEffect(() => {
-    async function cargarFicha() {
-      setCargando(true);
-
-      const { data: authData } =
-        await supabase.auth.getUser();
-
-      if (!authData.user) {
-        setError("Debes iniciar sesión.");
-        setCargando(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("deportistas")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (error) {
-        setError("No se pudo cargar la ficha: " + error.message);
-      } else {
-        setDeportista(data);
-      }
-
-      setCargando(false);
-    }
-
-    if (id) void cargarFicha();
-  }, [id]);
-
-  const tarjeta = {
-    background: "#202020",
-    padding: "24px",
-    borderRadius: "12px",
-    marginBottom: "20px",
-  };
-
-  const titulo = {
-    color: "#ff8c28",
-    marginBottom: "18px",
-  };
-
-  return (
-    <main style={{
-      minHeight: "100vh",
-      background: "#111111",
-      color: "white",
-      padding: "40px 20px",
-      fontFamily: "Arial, sans-serif",
-    }}>
-      <div style={{ maxWidth: "950px", margin: "auto" }}>
-        <p style={{ color: "#ff8c28", fontWeight: "bold" }}>
-          NH TRAINING CONCEPT
-        </p>
-
-        <h1>FICHA DEL DEPORTISTA</h1>
-        <p style={{ color: "#aaaaaa" }}>
-          NH Trail Club · Seguimiento individual
-        </p>
-
-        {cargando && <p>Cargando ficha...</p>}
-        {error && <p role="alert">{error}</p>}
-
-        {deportista && (
-          <>
-            <section style={{ ...tarjeta, marginTop: "30px" }}>
-              <h2 style={titulo}>{deportista.nombre}</h2>
-              <p><strong>Nivel:</strong> {deportista.nivel || "Sin definir"}</p>
-              <p><strong>Email:</strong> {deportista.email || "Sin registrar"}</p>
-              <p><strong>Teléfono:</strong> {deportista.telefono || "Sin registrar"}</p>
-              <p><strong>Fecha de alta:</strong> {
-                new Date(deportista.created_at).toLocaleDateString("es-ES")
-              }</p>
-            </section>
-
-            <section style={tarjeta}>
-              <h2 style={titulo}>Objetivos deportivos</h2>
-              <p>{deportista?.user_id?<Link href={"/objetivos?"+new URLSearchParams({athlete:deportista.user_id}).toString()} style={{color:"#f28c28"}}>Gestionar objetivo principal, etapas y revisión semanal →</Link>:"Vincula una cuenta al deportista para gestionar su preparación."}</p>
-            </section>
-
-            <section style={tarjeta}>
-              <h2 style={titulo}>Entrenamientos</h2>
-              <p>Próximamente: planificación semanal de fuerza y trail.</p>
-            </section>
-
-            <section style={tarjeta}>
-              <h2 style={titulo}>Seguimiento y evolución</h2>
-              <p>Próximamente: resultados, pruebas físicas y progreso.</p>
-            </section>
-
-            <section style={tarjeta}>
-              <h2 style={titulo}>Salidas de montaña</h2>
-              <p>Próximamente: actividades y rutas realizadas.</p>
-            </section>
-          </>
-        )}
-
-        <Link href="/deportistas" style={{
-          color: "#ff8c28",
-          display: "inline-block",
-          marginTop: "20px",
-        }}>
-          ← Volver a deportistas
-        </Link>
-      </div>
-    </main>
-  );
+    let active = true;
+    loadAthleteCard(supabase, id).then(card => { if (active) setResult({ key, card, error: '' }); }).catch(error => {
+      if (!active) return;
+      if (error instanceof AthleteAccessError && error.reason === 'login') { window.location.replace('/login'); return; }
+      setResult({ key, card: null, error: error instanceof AthleteAccessError ? error.message : 'No se pudo cargar la ficha. Comprueba la conexión y vuelve a intentarlo.' });
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(event => {
+      if (event === 'SIGNED_OUT') { active = false; setResult(null); window.location.replace('/login'); }
+    });
+    return () => { active = false; subscription.unsubscribe(); };
+  }, [id, key]);
+  const loaded = result?.key === key ? result : null;
+  const card = loaded?.card;
+  return <main className={styles.page}><div className={styles.inner}>
+    <p className={styles.brand}>NH TRAINING CONCEPT</p><h1>Ficha del deportista</h1><p className={styles.intro}>NH Trail Club · Entrenamientos, evolución y seguimiento individual.</p>
+    <nav className={styles.nav}><Link className={styles.link} href="/deportistas">← Deportistas</Link><Link className={styles.link} href="/dashboard">Panel principal</Link></nav>
+    {!loaded ? <p role="status">Comprobando acceso y cargando ficha…</p> : loaded.error ? <section className={styles.panel} role="alert"><p className={styles.error}>{loaded.error}</p><button type="button" className={styles.field} onClick={() => setReload(n => n + 1)}>Reintentar ficha</button></section> : !card ? <p className={styles.intro}>La ficha no existe o ya no está disponible.</p> : <>
+      <section className={styles.panel}><h2>{card.nombre}</h2><div className={styles.cards}><div><p>Nivel: <strong>{card.nivel || 'Sin definir'}</strong></p><p>Correo: {card.email || 'Sin registrar'}</p></div><div><p>Teléfono: {card.telefono || 'Sin registrar'}</p><p>Alta: {new Date(card.created_at).toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid' })}</p></div></div><span className={styles.badge}>{card.user_id ? 'Cuenta vinculada' : 'Sin cuenta vinculada'}</span></section>
+      {card.user_id ? <AthleteOverview key={card.id + ':' + card.user_id} client={supabase} athlete={card.user_id} cardId={card.id}/> : <section className={styles.panel}><h2>Seguimiento de la cuenta</h2><p className={styles.intro}>Esta ficha no tiene una cuenta vinculada. Para mostrar entrenamientos, objetivos y salidas es necesario vincular una cuenta.</p><p className={styles.note}>Los datos de contacto se conservan. No se ha creado ni vinculado ninguna cuenta automáticamente.</p></section>}
+    </>}
+  </div></main>;
 }

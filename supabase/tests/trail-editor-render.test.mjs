@@ -36,3 +36,18 @@ test('basic daily view excludes individual sessions even if supplied in a UI fix
  const html=renderToStaticMarkup(React.createElement(DailyContent,{data,premium:false}));
  assert.equal(html.includes('Private plan fixture'),false);assert.ok(html.includes('PLUS y PLUS Performance'));assert.ok(html.includes('Registrar salida'));
 });
+
+const AthleteContent=load(path.join(root,'components/AthleteOverview.tsx')).AthleteOverviewContent;
+const athleteFixture={athlete:'11111111-1111-4111-8111-111111111111',cardId:'22222222-2222-4222-8222-222222222222',month:'2026-10',today:'2026-10-27'};
+test('athlete overview replaces placeholders with real sections and does not announce RPE completeness for an empty month',()=>{
+ const html=renderToStaticMarkup(React.createElement(AthleteContent,{...athleteFixture,data:{sessions:[],entries:[],goals:[],feedback:[]}}));
+ for(const heading of ['Entrenamientos del mes','Evolución semanal de trail','Informes de las sesiones del mes','Salidas de montaña del mes'])assert.ok(html.includes(heading),heading);
+ assert.equal(html.includes('Próximamente'),false);assert.ok(html.includes('No hay salidas registradas para calcular la carga.'));assert.equal(html.includes('Todas las salidas del mes tienen RPE indicado.'),false);
+ assert.ok(html.includes('athlete='+athleteFixture.athlete));assert.ok(html.includes('athlete='+athleteFixture.cardId));assert.ok(html.includes('month=2026-10'));
+});
+test('athlete overview caps visible session lists while keeping complete monthly totals and reports partial RPE',()=>{
+ const sessions=Array.from({length:11},(_,i)=>({id:'session-'+i,title:'Fixture '+i,session_date:'2026-10-27',category:'trail',completed:true}));
+ const data={sessions,entries:[{id:'run',activity_date:'2026-10-27',distance_km:10,elevation_m:500,duration_minutes:60,effort:null,source:'file',file_format:'fit'}],goals:[{id:'goal',status:'active',title:'Objetivo fixture',target_date:'2027-03-01'}],feedback:[{session_id:'session-0',effort:4,sensations:'<script>fixture</script>',updated_at:'2026-10-27T10:00:00Z'}]};
+ const html=renderToStaticMarkup(React.createElement(AthleteContent,{...athleteFixture,data}));
+ assert.ok(html.includes('10 de 11 sesiones'));assert.ok(html.includes('11 / 11'));assert.ok(html.includes('Cálculo parcial: 1 salida(s) sin esfuerzo indicado.'));assert.ok(html.includes('Archivo FIT'));assert.ok(html.includes('Objetivo fixture'));assert.equal(html.includes('<script>fixture</script>'),false);assert.ok(html.includes('&lt;script&gt;fixture&lt;/script&gt;'));
+});
