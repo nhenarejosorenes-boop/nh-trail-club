@@ -4,6 +4,9 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import styles from "./dashboard.module.css";
 import MembershipNotice from "@/components/MembershipNotice";
+import DailyTrainingPanel from "@/components/DailyTrainingPanel";
+import { athleteToday } from "@/lib/training-progress";
+import { madridWeekBounds } from "@/lib/daily-training";
 import MessagingShortcut from "@/components/MessagingShortcut";
 import { loadMembershipAccess } from "@/lib/membership-client";
 import { membershipLabels, type MembershipAccess } from "@/lib/membership-model";
@@ -13,9 +16,9 @@ type Training = { id:string; session_date:string; category:string; title:string;
 type PaymentAlert = {count:number;overdue:number;upcoming:number;amount:number};
 type Outing = { id:string; title:string; starts_at:string; location:string|null; activity_type:string|null };
 const fmt = (date:string, options?:Intl.DateTimeFormatOptions) => new Date(date).toLocaleDateString("es-ES",options ?? {day:"numeric",month:"short"});
-const localDate = (d:Date) => [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
-function weekBounds() { const start=new Date();start.setHours(12,0,0,0);start.setDate(start.getDate()-((start.getDay()+6)%7));const end=new Date(start);end.setDate(end.getDate()+7);return [localDate(start),localDate(end)]; }
 export default function DashboardPage() {
+ const [userId,setUserId]=useState("");
+ const [planFailed,setPlanFailed]=useState(false);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
  const [name,setName]=useState("");
@@ -32,10 +35,10 @@ export default function DashboardPage() {
    const {data:auth,error:authError}=await supabase.auth.getUser();
    if(!active)return;
    if(authError||!auth.user){window.location.replace("/login");return;}
-   const uid=auth.user.id;setEmail(auth.user.email??"");
+   const uid=auth.user.id;setUserId(uid);setEmail(auth.user.email??"");
    const [profile,plan,activities,registrations]=await Promise.all([
     supabase.from("profiles").select("full_name,role").eq("id",uid).single(),
-    supabase.from("weekly_training_plan").select("id,session_date,category,title,details,completed").eq("athlete_id",uid).gte("session_date",weekBounds()[0]).lt("session_date",weekBounds()[1]).order("session_date"),
+    supabase.from("weekly_training_plan").select("id,session_date,category,title,details,completed").eq("athlete_id",uid).gte("session_date",madridWeekBounds(athleteToday())[0]).lt("session_date",madridWeekBounds(athleteToday())[1]).order("session_date"),
     supabase.from("club_activities").select("id,title,starts_at,location,activity_type").gte("starts_at",new Date().toISOString()).order("starts_at").limit(3),
     supabase.from("activity_registrations").select("activity_id").eq("user_id",uid)
    ]);
@@ -46,7 +49,7 @@ export default function DashboardPage() {
    const access=await loadMembershipAccess(supabase,uid,profile.data?.role||"athlete");
    if(!active)return;
    setMembership(access);
-   setTrainings((plan.data??[]) as Training[]);
+   setPlanFailed(Boolean(plan.error)); setTrainings((plan.data??[]) as Training[]);
    setOutings((activities.data??[]) as Outing[]);
    setRegistered((registrations.data??[]).map(r=>r.activity_id));
    // Only the logged-in athlete's subscriptions and monthly dues are visible under RLS.
@@ -56,7 +59,7 @@ export default function DashboardPage() {
     if(ids.length){
      const {data:dues,error:dueError}=await supabase.from("club_subscription_monthly_dues").select("subscription_id,due_date,amount_eur,status").in("subscription_id",ids).in("status",["pending","overdue"]);
      if(active&&!dueError){
-      const now=localDate(new Date());
+      const now=athleteToday();
       const upcoming=(dues??[]).filter(d=>{const days=Math.round((Date.parse(d.due_date+"T12:00:00Z")-Date.parse(now+"T12:00:00Z"))/86400000);return days>=0&&days<=7});
       const overdue=(dues??[]).filter(d=>d.status==="overdue"||d.due_date<now);
       const seen=new Map([...overdue,...upcoming].map(d=>[d.subscription_id+"-"+d.due_date,d]));
@@ -95,22 +98,23 @@ export default function DashboardPage() {
      <div><strong style={{color:"#ffae63",fontSize:18}}>◷ Avisos de cuotas del club ({paymentAlert.count})</strong><p style={{margin:"7px 0 0",color:"#e7d8ca"}}>{paymentAlert.overdue>0?paymentAlert.overdue+" vencida(s) · ":""}{paymentAlert.upcoming>0?paymentAlert.upcoming+" próxima(s) a vencer · ":""}{paymentAlert.amount.toLocaleString("es-ES",{style:"currency",currency:"EUR"})} en cuotas registradas con aviso</p></div>
      <Link href="/mis-cuotas" style={{background:"#ff922f",color:"#111",fontWeight:800,textDecoration:"none",padding:"11px 15px",borderRadius:9}}>Consultar mis cuotas →</Link>
     </section>}
+    {!loading&&membership?.club&&userId&&<DailyTrainingPanel client={supabase} athlete={userId} premium={Boolean(membership.premium)}/>}
     <div className={styles.stats}>
-     <div className={styles.stat}><span className={styles.statIcon}>♢</span><div><small>Sesiones esta semana</small><strong>{loading?"—":membership?.premium?trainings.length:"PLUS"}</strong><span>{membership?.premium?"Planificadas":"Plan individual"}</span></div></div>
-     <div className={styles.stat}><span className={styles.statIcon}>✓</span><div><small>Sesiones completadas</small><strong>{loading?"—":membership?.premium?completed+" / "+trainings.length:"PLUS"}</strong><span>{membership?.premium?(trainings.length?Math.round(completed/trainings.length*100)+"% del plan":"Sin sesiones aún"):"Seguimiento individual"}</span></div></div>
+     <div className={styles.stat}><span className={styles.statIcon}>♢</span><div><small>Sesiones esta semana</small><strong>{loading||planFailed?"—":membership?.premium?trainings.length:"PLUS"}</strong><span>{planFailed?"No disponible":membership?.premium?"Planificadas":"Plan individual"}</span></div></div>
+     <div className={styles.stat}><span className={styles.statIcon}>✓</span><div><small>Sesiones completadas</small><strong>{loading||planFailed?"—":membership?.premium?completed+" / "+trainings.length:"PLUS"}</strong><span>{planFailed?"No disponible":membership?.premium?(trainings.length?Math.round(completed/trainings.length*100)+"% del plan":"Sin sesiones aún"):"Seguimiento individual"}</span></div></div>
      <div className={styles.stat}><span className={styles.statIcon}>△</span><div><small>Próximas salidas</small><strong>{loading?"—":outings.length}</strong><span>Disponibles en el club</span></div></div>
      <div className={styles.stat}><span className={styles.statIcon}>↗</span><div><small>Mis inscripciones</small><strong>{loading?"—":outings.filter(o=>registered.includes(o.id)).length}</strong><span>Entre las próximas salidas</span></div></div>
     </div>
     <div className={styles.columns}>
      <section className={styles.panel}><div className={styles.panelHeading}><h2><span>▣</span> Plan semanal</h2><Link href="/entrenamientos/plan">Ver semana completa →</Link></div>
-      {loading?<p className={styles.muted}>Cargando entrenamientos...</p>:!membership?.premium?<div className={styles.empty}>La planificación individual está incluida en PLUS y PLUS Performance. Tu modalidad Básica incluye las salidas del club.<p><Link href="/suscripciones">Ver modalidades PLUS →</Link></p></div>:trainings.length?trainings.map(s=><div key={s.id} className={styles.training}><div className={styles.dateTile}><small>{fmt(s.session_date+"T12:00:00",{weekday:"short"}).toUpperCase()}</small><strong>{s.session_date.slice(-2)}</strong></div><div className={styles.trainingText}><strong>{s.title}</strong><span>{s.category.toUpperCase()}{s.details?" · "+s.details:""}</span></div><span className={s.completed?styles.done:styles.pending} aria-label={s.completed?"Completada":"Pendiente"}>{s.completed?"✓":"○"}</span></div>):<div className={styles.empty}>Todavía no tienes sesiones programadas esta semana.<p><Link href="/entrenamientos/plan">Consultar planificación →</Link></p></div>}
+      {loading?<p className={styles.muted}>Cargando entrenamientos...</p>:!membership?.premium?<div className={styles.empty}>La planificación individual está incluida en PLUS y PLUS Performance. Tu modalidad Básica incluye las salidas del club.<p><Link href="/suscripciones">Ver modalidades PLUS →</Link></p></div>:planFailed?<p className={styles.error}>No se pudo comprobar tu plan semanal. Actualiza la página para reintentar.</p>:trainings.length?trainings.map(s=><div key={s.id} className={styles.training}><div className={styles.dateTile}><small>{fmt(s.session_date+"T12:00:00",{weekday:"short"}).toUpperCase()}</small><strong>{s.session_date.slice(-2)}</strong></div><div className={styles.trainingText}><strong>{s.title}</strong><span>{s.category.toUpperCase()}{s.details?" · "+s.details:""}</span></div><span className={s.completed?styles.done:styles.pending} aria-label={s.completed?"Completada":"Pendiente"}>{s.completed?"✓":"○"}</span></div>):<div className={styles.empty}>Todavía no tienes sesiones programadas esta semana.<p><Link href="/entrenamientos/plan">Consultar planificación →</Link></p></div>}
      </section>
      <section className={styles.panel}><div className={styles.panelHeading}><h2><span>△</span> Próximas salidas</h2><Link href="/salidas">Ver todas →</Link></div>
       {loading?<p className={styles.muted}>Cargando salidas...</p>:outings.length?outings.map(o=><div key={o.id} className={styles.outing}><div className={styles.outingIcon}>⛰</div><div className={styles.outingText}><strong>{o.title}</strong><span>{fmt(o.starts_at,{day:"numeric",month:"long",year:"numeric"})}</span><small>{o.location||"Lugar por confirmar"}</small></div><Link href="/salidas" className={styles.outingAction}>{registered.includes(o.id)?"Inscrito ✓":"Ver detalles"}</Link></div>):<div className={styles.empty}>No hay salidas próximas publicadas.<p><Link href="/salidas">Consultar salidas →</Link></p></div>}
      </section>
     </div>
     <div className={styles.bottomColumns}>
-     <section className={styles.panel}><div className={styles.panelHeading}><h2><span>▥</span> Mi progreso</h2><Link href="/progreso">Ver progreso →</Link></div>{membership&&!membership.premium?<p className={styles.muted}>El seguimiento individual está incluido en PLUS y PLUS Performance. <Link href="/suscripciones">Consultar modalidades →</Link></p>:<div className={styles.progress}><div><small>Sesiones completadas esta semana</small><strong>{completed} <span>de {trainings.length}</span></strong><div className={styles.track}><div style={{width:(trainings.length?completed/trainings.length*100:0)+"%"}}/></div></div><div><small>Sesiones pendientes</small><strong>{trainings.length-completed}</strong><p>Datos de tu planificación real</p></div></div>}</section>
+     <section className={styles.panel}><div className={styles.panelHeading}><h2><span>▥</span> Mi progreso</h2><Link href="/progreso">Ver progreso →</Link></div>{membership&&!membership.premium?<p className={styles.muted}>El seguimiento individual está incluido en PLUS y PLUS Performance. <Link href="/suscripciones">Consultar modalidades →</Link></p>:planFailed?<p className={styles.error}>El progreso semanal no está disponible mientras no se pueda comprobar el plan.</p>:<div className={styles.progress}><div><small>Sesiones completadas esta semana</small><strong>{completed} <span>de {trainings.length}</span></strong><div className={styles.track}><div style={{width:(trainings.length?completed/trainings.length*100:0)+"%"}}/></div></div><div><small>Sesiones pendientes</small><strong>{trainings.length-completed}</strong><p>Datos de tu planificación real</p></div></div>}</section>
      <section className={styles.panel}><div className={styles.panelHeading}><h2>Accesos rápidos</h2></div><div className={styles.quick}>{navigation.filter(n=>n.href!=="/dashboard").slice(0,6).map(n=><Link href={n.href} key={n.href}><span>{n.icon}</span>{n.label}</Link>)}</div></section>
     </div>
     <footer className={styles.footer}>NH TRAINING CONCEPT · Tu meta, mi desafío</footer>

@@ -16,3 +16,23 @@ test('the actual trail editor renders mountain-running inputs without strength l
 test('the strength editor retains its load inputs and excludes the dedicated trail panel',()=>{const html=render('fuerza');assert.ok(html.includes('Carga (kg)'));assert.equal(html.includes('Desnivel negativo (m−)'),false);assert.equal(html.includes('Rodaje suave</option>'),false);});
 test('the composer includes an explicit goal link and a separate session purpose',()=>{const html=render('trail');assert.ok(html.includes('Objetivo del corredor vinculado'));assert.ok(html.includes('¿Para qué sirve esta sesión?'));});
 test('the actual goal form renders baseline, deadline and availability fields',()=>{const Form=load(path.join(root,'components/RunnerGoalForm.tsx')).default;const noop=()=>{};const html=renderToStaticMarkup(React.createElement(Form,{client:{},athlete:'a',goal:null,today:'2026-10-26',onSaved:noop,onCancel:noop,onDirty:noop}));for(const label of ['Objetivo principal','Fecha del objetivo o revisión','Días disponibles por semana','Punto de partida y entrenamiento actual'])assert.ok(html.includes(label),label);});
+
+const DailyContent=load(path.join(root,'components/DailyTrainingPanel.tsx')).DailyTrainingContent;
+const daily=load(path.join(root,'lib/daily-training.ts')).dailyTraining;
+const today='2026-10-27';
+const dailyEntry=(id)=>({id,activity_date:today,distance_km:10,elevation_m:100,duration_minutes:60,effort:null,linked_session_id:null});
+test('daily view renders the real day and next session with their exact navigation dates',()=>{
+ const data=daily([{id:'today-session',session_date:today,category:'fuerza',title:'Fuerza de hoy',completed:true},{id:'future-session',session_date:'2026-11-02',category:'trail',title:'Rodaje del lunes',completed:false}],[],today);
+ const html=renderToStaticMarkup(React.createElement(DailyContent,{data,premium:true}));
+ assert.ok(html.includes('Fuerza de hoy'));assert.ok(html.includes('Completada'));assert.ok(html.includes('Rodaje del lunes'));assert.ok(html.includes('date=2026-11-02'));assert.ok(html.includes('session=future-session'));
+});
+test('daily review renders five unique recent tasks and names optional links without treating them as mandatory',()=>{
+ const data=daily([],Array.from({length:6},(_,i)=>dailyEntry('row-'+i)),today);
+ const html=renderToStaticMarkup(React.createElement(DailyContent,{data,premium:true}));
+ assert.equal((html.match(/Revisar salida →/g)||[]).length,5);assert.ok(html.includes('de 6 por revisar'));assert.ok(html.includes('Sin vínculo con el plan (opcional)'));assert.ok(html.includes('entry=row-0'));assert.ok(html.includes('date=2026-10-27'));
+});
+test('basic daily view excludes individual sessions even if supplied in a UI fixture',()=>{
+ const data=daily([{id:'s',session_date:today,category:'trail',title:'Private plan fixture',completed:false}],[],today);
+ const html=renderToStaticMarkup(React.createElement(DailyContent,{data,premium:false}));
+ assert.equal(html.includes('Private plan fixture'),false);assert.ok(html.includes('PLUS y PLUS Performance'));assert.ok(html.includes('Registrar salida'));
+});

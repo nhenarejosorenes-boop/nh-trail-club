@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { athleteToday, monthRange, trainingProgress, type TrailEntry } from "@/lib/training-progress";
 import { loadTrailMonth, trailRecord, type TrailDraft } from "@/lib/trail-log";
 import { loadTrailSessionChoices, trailLinkContext, type TrailSessionChoice } from "@/lib/trail-session-link";
+import { requestedEntry } from "@/lib/daily-training";
 import styles from "@/components/athlete-panels.module.css";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
@@ -13,6 +14,8 @@ const field: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
 const button: React.CSSProperties = { background: "#f28c28", border: 0, borderRadius: 8, padding: "12px 18px", fontWeight: 700, cursor: "pointer", color: "#111" };
 
 export default function SeguimientoTrail() {
+  const [requestedEntryId,setRequestedEntryId]=useState("");
+  const handledEntry=useRef("");
   const [uid, setUid] = useState("");
   const [month, setMonth] = useState(() => athleteToday().slice(0, 7));
   const [entries, setEntries] = useState<TrailEntry[]>([]);
@@ -45,6 +48,7 @@ export default function SeguimientoTrail() {
         const { data, error: authError } = await supabase.auth.getUser();
         if (!active) return;
         if (authError || !data.user) { window.location.replace("/login"); return; }
+        setRequestedEntryId(requestedEntry(new URLSearchParams(window.location.search)));
         const context = trailLinkContext(new URLSearchParams(window.location.search), athleteToday());
         setDraft(d => ({ ...d, date: context.date })); setMonth(context.date.slice(0, 7)); setLinked(context.session);
         setUid(data.user.id);
@@ -75,6 +79,17 @@ export default function SeguimientoTrail() {
     }).catch(() => { if (active) setChoiceError("No se pudieron comprobar las sesiones de tu plan."); });
     return () => { active = false; };
   }, [uid, draft.date, linked, expectedChoiceKey, choiceReload]);
+
+  useEffect(() => {
+    if (!uid || loading || loadError || loadedMonth !== month || !requestedEntryId || handledEntry.current === requestedEntryId) return;
+    handledEntry.current = requestedEntryId;
+    const entry = entries.find(row => row.id === requestedEntryId);
+    if (!entry) { setError("La salida solicitada no está disponible en este mes. Consulta el historial o selecciona otro mes."); return; }
+    setEditingId(entry.id); setLinked(entry.linked_session_id ?? "");
+    setDraft({ date: entry.activity_date, distance: String(entry.distance_km), elevation: String(entry.elevation_m), duration: String(entry.duration_minutes), effort: entry.effort === null ? "" : String(entry.effort), feelings: entry.feelings ?? "" });
+    formSection.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    formSection.current?.focus({ preventScroll: true });
+  }, [uid, loading, loadError, loadedMonth, month, requestedEntryId, entries]);
 
   function change(fieldName: keyof TrailDraft, value: string) { setDraft(d => ({ ...d, [fieldName]: value })); }
   function clearEditor() { setEditingId(null); setDraft(emptyDraft()); setLinked(""); }
@@ -145,7 +160,7 @@ export default function SeguimientoTrail() {
     </section>}
     <section className={styles.panel} ref={formSection} tabIndex={-1} aria-labelledby="trail-form-title">
       <h2 id="trail-form-title">{editingId ? "Editar salida" : "Añadir salida realizada"}</h2>
-      <form onSubmit={save}><fieldset disabled={busy || !uid} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 16 }}>
+      <form onSubmit={save}><fieldset disabled={busy || !uid || Boolean(requestedEntryId && handledEntry.current !== requestedEntryId)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 16 }}>
         <legend className={styles.note}>Datos de la salida</legend>
         <label>Fecha<input className={styles.field} style={field} type="date" min="2000-01-01" max={today} value={draft.date} onChange={e => change("date", e.target.value)} required /></label>
         <label>Distancia (km)<input className={styles.field} style={field} type="number" min="0" max="500" step=".01" value={draft.distance} onChange={e => change("distance", e.target.value)} required /></label>
