@@ -83,7 +83,7 @@ export default function ImportActivity(){
   return <main className={styles.page}><div className={styles.inner}>
     <p className={styles.brand}>NH TRAINING CONCEPT</p><h1>Importar una actividad</h1>
     <p className={styles.intro}>Añade una salida realizada desde un archivo de Garmin u otro dispositivo. Revisa los datos antes de guardarlos en tu seguimiento de trail.</p>
-    <nav className={styles.nav}><Link className={styles.link} href="/seguimiento-trail">Mis salidas</Link><Link className={styles.link} href="/entrenamientos/trail">Plan de trail</Link><Link className={styles.link} href="/progreso">Mi progreso</Link></nav>
+    <nav className={styles.nav}><Link className={styles.link} href="/dispositivos">Mis dispositivos</Link><Link className={styles.link} href="/seguimiento-trail">Mis salidas</Link><Link className={styles.link} href="/entrenamientos/trail">Plan de trail</Link><Link className={styles.link} href="/progreso">Mi progreso</Link></nav>
     <section className={styles.panel}><h2>1. Selecciona el archivo</h2>
       <label>Archivo FIT, TCX o GPX (máximo 20 MB)<input className={styles.field} type="file" accept=".fit,.tcx,.gpx" disabled={!uid||busy} onChange={e=>{void read(e.target.files?.[0]);e.target.value='';}} /></label>
       <p className={styles.note}>Desde la actividad de Garmin Connect puedes exportar el archivo original. Si se descarga un ZIP, descomprímelo primero. Se procesa en tu navegador: guardamos el resumen confirmado, sin subir el archivo ni su recorrido GPS.</p>

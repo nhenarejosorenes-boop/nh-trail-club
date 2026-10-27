@@ -13,7 +13,7 @@ const panels = [
   { title: "Mi planificación semanal", text: "Sesiones por semana, indicaciones del entrenador y registro de sesiones completadas.", icon: "📅", href: "/entrenamientos/plan", premium: true },
   { title: "Entrenamiento de fuerza", text: "Sesiones de fuerza prescritas, ejercicios e indicaciones de series, repeticiones y cargas.", icon: "💪", href: "/entrenamientos/fuerza", premium: true },
   { title: "Entrenamiento Trail Running", text: "Plan de carrera y montaña, objetivos de cada sesión y acceso al registro de salidas.", icon: "⛰", href: "/entrenamientos/trail", premium: true },
-  { title: "Importar actividad", text: "Añade una salida realizada desde un archivo FIT, TCX o GPX de tu dispositivo.", icon: "⌚", href: "/importar-actividad", premium: false },
+  { title: "Mis dispositivos", text: "Importa archivos de tu reloj, consulta tus importaciones y el estado de la integración con Garmin.", icon: "⌚", href: "/dispositivos", premium: false },
   { title: "Salidas del club", text: "Próximas actividades, plazas disponibles e inscripciones del club.", icon: "🏃", href: "/salidas", premium: false },
   { title: "Mi progreso", text: "Plan completado, kilómetros, desnivel, tiempo y evolución semanal de tus registros.", icon: "📈", href: "/progreso", premium: true },
 ];
