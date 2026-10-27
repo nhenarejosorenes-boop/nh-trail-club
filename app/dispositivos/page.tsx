@@ -39,7 +39,7 @@ export default function Devices() {
     <p className={styles.brand}>NH TRAINING CONCEPT</p>
     <Link className={styles.back} href="/entrenamientos">← Mis entrenamientos</Link>
     <h1>Mis dispositivos</h1>
-    <p className={styles.intro}>Lleva las actividades de tu reloj al seguimiento de NH Trail Club.</p>
+    <p className={styles.intro}>Lleva las actividades de tu reloj al seguimiento de NH Club Trail Running Alicante.</p>
     <nav className={styles.nav}><Link className={styles.link} href="/importar-actividad">Importar actividad</Link><Link className={styles.link} href="/seguimiento-trail">Mis salidas</Link></nav>
     <div className={styles.cards}>
       <section className={styles.panel}><span className={styles.badge}>Disponible</span><h2>Importación desde archivo</h2>

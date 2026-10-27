@@ -416,7 +416,7 @@ export default function AdminPage() {
           NH TRAINING CONCEPT
         </p>
 
-        <h1>Administración NH Trail Club</h1>
+        <h1>Administración NH Club Trail Running Alicante</h1>
 
         {cargando && <p>Comprobando permisos...</p>}
 

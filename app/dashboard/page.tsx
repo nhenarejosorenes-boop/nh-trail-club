@@ -91,7 +91,7 @@ export default function DashboardPage() {
     <time className={styles.today}>{new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</time>
    </header>
    <div className={styles.inner}>
-    <p><Link href="/instalar" style={{ color: "#ffad5c", fontWeight: 700 }}>Instalar NH Trail Club en mi móvil →</Link></p>
+    <p><Link href="/instalar" style={{ color: "#ffad5c", fontWeight: 700 }}>Instalar NH Club Trail Running Alicante en mi móvil →</Link></p>
     {error&&<p className={styles.error} role="alert">{error}</p>}
     {!loading && membership?.club && <MessagingShortcut admin={role === "admin"} />}
     {membership?.plan&&<p style={{color:"#ffad5c",fontWeight:800}}>Mi modalidad: {membershipLabels[membership.plan]}</p>}

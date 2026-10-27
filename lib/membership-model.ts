@@ -10,7 +10,7 @@ export type MembershipAccess = {
 
 const rank: Record<MembershipPlan, number> = { basic: 1, plus: 2, plus_performance: 3 };
 export const membershipLabels: Record<MembershipPlan, string> = {
-  basic: "NH Trail Club Básica", plus: "NH Trail Club PLUS", plus_performance: "PLUS Performance",
+  basic: "NH Club Trail Running Alicante Básica", plus: "NH Club Trail Running Alicante PLUS", plus_performance: "PLUS Performance",
 };
 
 export function membershipMonth(at = new Date()): string {

@@ -164,7 +164,7 @@ export default function LoginPage() {
             marginBottom: "10px",
           }}
         >
-          NH TRAIL CLUB
+          NH Club Trail Running Alicante
         </h1>
 
         <p
@@ -372,7 +372,7 @@ export default function LoginPage() {
             >
               {register
                 ? "Volver a iniciar sesión"
-                : "Registrarme en NH Trail Club"}
+                : "Registrarme en NH Club Trail Running Alicante"}
             </button>
           </div>
         </div>
@@ -385,7 +385,7 @@ export default function LoginPage() {
             marginTop: "30px",
           }}
         >
-          NH TRAIL CLUB · SALUD · FUERZA · MONTAÑA
+          NH Club Trail Running Alicante · SALUD · FUERZA · MONTAÑA
         </p>
       </div>
     </main>

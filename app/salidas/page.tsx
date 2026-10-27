@@ -274,7 +274,7 @@ export default function SalidasPage() {
         <h1>Salidas de montaña</h1>
 
         <p style={{ color: "#bbb" }}>
-          Descubre las próximas actividades de NH Trail Club.
+          Descubre las próximas actividades de NH Club Trail Running Alicante.
         </p>
 
         {mensaje && (
