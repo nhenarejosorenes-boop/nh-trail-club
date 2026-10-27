@@ -50,7 +50,17 @@ export default function TrainingPlan({categoryFilter,showEditor=false}:{category
   useEffect(()=>{if(!selected)return;let active=true;setGoalLoading(true);setGoalError("");setGoals([]);setPhases([]);setPreviousReview(null);(async()=>{try{const rows=await loadRunnerGoals(supabase,selected);const main=rows.find(g=>g.status==="active");const stages=main?await loadGoalPhases(supabase,main.id):[];const review=main?await supabase.from("runner_goal_reviews").select("*").eq("goal_id",main.id).eq("week_start",addDays(week,-7)).maybeSingle():{data:null,error:null};if(review.error)throw review.error;if(active){setGoals(rows);setPhases(stages);setPreviousReview(review.data as GoalReview|null);}}catch{if(active)setGoalError("No se pudo comprobar el objetivo y las etapas del corredor.");}finally{if(active)setGoalLoading(false);}})();return()=>{active=false;};},[selected,goalReload,week]);
   const [resultDirty,setResultDirty]=useState<Record<string,boolean>>({});
   const dirtyResults=Object.values(resultDirty).some(Boolean);
-  useEffect(()=>{if(!dirtyResults)return;const warn=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue="";};window.addEventListener("beforeunload",warn);return()=>window.removeEventListener("beforeunload",warn);},[dirtyResults]);
+  const unsavedDraft=admin&&showEditor&&Boolean(draft.title||draft.structure.notes||draft.structure.blocks.some(block=>block.items.length)||purpose);
+  useEffect(()=>{
+    if(!dirtyResults&&!unsavedDraft&&!busy)return;
+    const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};
+    const navigate=(event:Event)=>{
+      if(busyRef.current){event.preventDefault();setMessage("Espera a que termine el guardado antes de cambiar de pantalla.");return;}
+      if(!window.confirm("¿Salir y descartar los cambios sin guardar?"))event.preventDefault();
+    };
+    window.addEventListener("beforeunload",warn);window.addEventListener("nh:before-navigation",navigate);
+    return()=>{window.removeEventListener("beforeunload",warn);window.removeEventListener("nh:before-navigation",navigate);};
+  },[dirtyResults,unsavedDraft,busy]);
   useEffect(()=>{if(!admin||!showEditor)return;let active=true;(async()=>{try{const all:LibraryExercise[]=[];for(let from=0;;from+=500){const {data,error}=await supabase.from("training_exercise_library").select("id,name,category,video_url,notes").order("name").order("id").range(from,from+499);if(error)throw error;all.push(...(data??[]) as LibraryExercise[]);if(!data||data.length<500)break;}if(active)setLibrary(all);}catch{if(active)setLibraryNotice("No se pudo cargar la biblioteca. Puedes escribir los ejercicios manualmente.");}})();return()=>{active=false;};},[admin,showEditor]);
   async function saveLibrary(exercise:Exercise){
     if(!admin||busyRef.current||templateBusyRef.current||libraryWriting.current)return;const url=videoLink(exercise.videoUrl??"");
