@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
           NH TRAINING CONCEPT
         </h3>
 
-        <h1>NH TRAIL CLUB</h1>
+        <h1>NH Club Trail Running Alicante</h1>
         <h2>Recuperar contraseña</h2>
 
         <p>Introduce tu correo electrónico.</p>

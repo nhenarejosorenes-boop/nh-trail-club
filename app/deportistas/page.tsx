@@ -240,7 +240,7 @@ export default function DeportistasPage() {
 
         <h1>GESTIÓN DE DEPORTISTAS</h1>
         <p style={{ color: "#aaaaaa" }}>
-          NH Trail Club · Administración de socios
+          NH Club Trail Running Alicante · Administración de socios
         </p>
 
         <section style={{ ...tarjeta, marginTop: "30px" }}>

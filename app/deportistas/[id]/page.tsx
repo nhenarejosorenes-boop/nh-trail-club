@@ -29,7 +29,7 @@ export default function AthleteCardPage() {
   const loaded = result?.key === key ? result : null;
   const card = loaded?.card;
   return <main className={styles.page}><div className={styles.inner}>
-    <p className={styles.brand}>NH TRAINING CONCEPT</p><h1>Ficha del deportista</h1><p className={styles.intro}>NH Trail Club · Entrenamientos, evolución y seguimiento individual.</p>
+    <p className={styles.brand}>NH TRAINING CONCEPT</p><h1>Ficha del deportista</h1><p className={styles.intro}>NH Club Trail Running Alicante · Entrenamientos, evolución y seguimiento individual.</p>
     <nav className={styles.nav}><Link className={styles.link} href="/deportistas">← Deportistas</Link><Link className={styles.link} href="/dashboard">Panel principal</Link></nav>
     {!loaded ? <p role="status">Comprobando acceso y cargando ficha…</p> : loaded.error ? <section className={styles.panel} role="alert"><p className={styles.error}>{loaded.error}</p><button type="button" className={styles.field} onClick={() => setReload(n => n + 1)}>Reintentar ficha</button></section> : !card ? <p className={styles.intro}>La ficha no existe o ya no está disponible.</p> : <>
       <section className={styles.panel}><h2>{card.nombre}</h2><div className={styles.cards}><div><p>Nivel: <strong>{card.nivel || 'Sin definir'}</strong></p><p>Correo: {card.email || 'Sin registrar'}</p></div><div><p>Teléfono: {card.telefono || 'Sin registrar'}</p><p>Alta: {new Date(card.created_at).toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid' })}</p></div></div><span className={styles.badge}>{card.user_id ? 'Cuenta vinculada' : 'Sin cuenta vinculada'}</span></section>

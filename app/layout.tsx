@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "NH / Club Trail Running Alicante",
+  title: "NH Club Trail Running Alicante",
   description: "Entrenamiento, comunidad y trail running",
-  appleWebApp: { capable: true, title: "NH Trail Club", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "NH Club Trail Running Alicante", statusBarStyle: "default" },
   icons: { apple: "/icons/apple-touch-icon.png" },
 };
 

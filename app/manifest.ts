@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "NH Trail Club",
-    short_name: "NH Trail",
+    name: "NH Club Trail Running Alicante",
+    short_name: "NH Club Trail Running Alicante",
     description: "Entrenamiento, comunidad y trail running de NH Training Concept",
     lang: "es",
     start_url: "/dashboard",
