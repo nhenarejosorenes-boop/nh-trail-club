@@ -41,7 +41,14 @@ export default function SeguimientoEntrenador() {
         if (profile.error) throw profile.error;
         if (profile.data?.role !== "admin") { setAccessError("Acceso exclusivo para administradores."); return; }
         const data = await loadCoachAthletes(supabase);
-        if (active) { setAthletes(data); setAllowed(true); }
+        if (active) {
+          const params = new URLSearchParams(window.location.search);
+          const requested = params.get("athlete");
+          if (requested && data.some(a => a.id === requested)) setSelected(requested);
+          const requestedMonth = params.get("month") ?? "";
+          if (/^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth) && requestedMonth >= "2000-01" && requestedMonth <= "2100-12") setMonth(requestedMonth);
+          setAthletes(data); setAllowed(true);
+        }
       } catch { if (active) setAccessError("No se pudo comprobar el acceso o cargar los deportistas. Vuelve a intentarlo."); }
       finally { if (active) setChecking(false); }
     })();
