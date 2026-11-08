@@ -28,7 +28,7 @@ before(async () => {
     create policy card_read on public.deportistas for select to authenticated using(user_id=auth.uid() or exists(select 1 from public.profiles where id=auth.uid() and role='admin'));
     create policy card_update on public.deportistas for update to authenticated using(exists(select 1 from public.profiles where id=auth.uid() and role='admin')) with check(exists(select 1 from public.profiles where id=auth.uid() and role='admin'));
   `);
-  await db.exec(readFileSync(new URL('../migrations/20261108175452_athlete_account_linking.sql', import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../migrations/20261108180200_athlete_account_linking.sql', import.meta.url), 'utf8'));
 });
 after(async () => { await db.close(); });
 beforeEach(async () => {

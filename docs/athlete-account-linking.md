@@ -32,7 +32,7 @@ que la base de datos haya rechazado la operación.
 
 ## Instalación y verificación
 
-Migración: `supabase/migrations/20261108175452_athlete_account_linking.sql`.
+Migración: `supabase/migrations/20261108180200_athlete_account_linking.sql`.
 La instalación no vincula ninguna cuenta ni crea participantes del piloto.
 TEST permanece inactivo. La suite usa PostgreSQL aislado mediante PGlite, con
 tablas mínimas compatibles, roles y RLS. Comprueba permisos, contexto cambiado,
@@ -49,3 +49,16 @@ para completar las pruebas.
 La revisión de seguridad previa a esta migración detectó avisos existentes en
 `controlar_plazas`, `obtener_plazas_actividad`, `mark_training_completed` y la
 protección de contraseñas filtradas. No pertenecen a este paquete.
+
+## Verificación de instalación
+
+Funciones instaladas en producción con la versión `20261108180200`. Se ha
+comprobado el rechazo de llamadas sin identidad de administrador, la ausencia de
+permisos de ejecución para `anon`, el uso de `SECURITY INVOKER` en las funciones
+públicas y la protección del registro privado de auditoría. No se han creado
+vinculaciones durante la instalación ni las comprobaciones.
+
+El asesor informa de RLS sin políticas en `nh_accounts.link_events`. Es deliberado:
+ningún cliente tiene permisos directos sobre esta tabla; solo la implementación
+privada registra eventos dentro de la transacción. Los avisos anteriores de otras
+funciones y contraseñas permanecen fuera del alcance de este paquete.
