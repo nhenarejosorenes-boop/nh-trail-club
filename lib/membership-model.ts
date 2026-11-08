@@ -6,6 +6,8 @@ export type MembershipAccess = {
   plan: MembershipPlan | null;
   club: boolean;
   premium: boolean;
+  source?: 'pilot';
+  pilotExpiresAt?: string;
 };
 
 const rank: Record<MembershipPlan, number> = { basic: 1, plus: 2, plus_performance: 3 };

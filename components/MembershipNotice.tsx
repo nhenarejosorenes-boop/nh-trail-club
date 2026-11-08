@@ -16,6 +16,7 @@ export default function MembershipNotice({ access, error = false }: { access: Me
     <section aria-labelledby="membership-title" style={{ maxWidth: 640, margin: "auto", padding: 28, background: "#222427", border: "1px solid #ff922f", borderRadius: 16 }}>
       <p style={{ color: "#ff922f", fontWeight: 800 }}>NH / CLUB TRAIL RUNNING ALICANTE</p>
       <h1 id="membership-title">{title}</h1><p role={error ? "alert" : undefined} style={{ color: "#ddd", lineHeight: 1.7 }}>{body}</p>
+      {access?.source==='pilot'&&<p style={{color:'#ffbd75'}}>Cuenta de prueba con acceso temporal. Esta modalidad no genera cuotas ni cobros.</p>}
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", marginTop: 24 }}>
         <Link href="/suscripciones" style={{ background: "#ff922f", color: "#111", padding: 12, borderRadius: 8, textDecoration: "none", fontWeight: 800 }}>Ver modalidades</Link>
         <Link href={basic ? "/salidas" : "/mis-cuotas"} style={{ color: "#ffad63" }}>{basic ? "Salidas del club" : "Mis cuotas y avisos"}</Link>
