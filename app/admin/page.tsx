@@ -434,6 +434,7 @@ export default function AdminPage() {
 
         {autorizado && (
           <>
+            <p><Link href="/admin/piloto" style={{ color: "#ffad63" }}>Preparar piloto de las tres modalidades →</Link></p>
             <section
               style={{
                 background: "#1e1e1e",

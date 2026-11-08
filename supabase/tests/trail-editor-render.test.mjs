@@ -10,6 +10,21 @@ function load(file){
  function local(name){if(!name.startsWith('.')&&!name.startsWith('@/'))return require(name);const base=name.startsWith('@/')?path.join(root,name.slice(2)):path.resolve(path.dirname(file),name);const resolved=[base,base+'.ts',base+'.tsx'].find(f=>existsSync(f));if(!resolved)throw Error(name);return load(resolved);}
  new Function('require','module','exports',js)(local,module,module.exports);return module.exports;
 }
+const PilotContent=load(path.join(root,'components/PilotReadiness.tsx')).default;
+test('pilot summary renders all modalities as pending and links to preparation actions',()=>{
+ const data={period:'2026-11-01',checkedAt:'2026-11-08T18:00:00Z',groups:[{plan:'basic',active:1,linked:1,missingCard:0},{plan:'plus',active:1,linked:0,missingCard:1},{plan:'plus_performance',active:0,linked:0,missingCard:0}],unlinkedCards:2,unpaidAccounts:1,pendingAccounts:3};
+ const html=renderToStaticMarkup(React.createElement(PilotContent,{data}));
+ assert.equal((html.match(/Piloto pendiente/g)||[]).length,3);
+ for(const text of ['Básica','PLUS','PLUS Performance','noviembre de 2026','Recorrido que falta comprobar','bloquean los planes individuales','vincularlo a una sesión propia'])assert.ok(html.includes(text),text);
+ for(const href of ['/deportistas','/admin/suscripciones','/admin/suscripciones/historial'])assert.ok(html.includes('href="'+href+'"'));
+ assert.equal(html.includes('<input'),false);assert.equal(html.includes('<button'),false);
+});
+test('zero pilot candidates remain a preparation task without implying completed real tests',()=>{
+ const data={period:'2026-11-01',checkedAt:'2026-11-08T18:00:00Z',groups:['basic','plus','plus_performance'].map(plan=>({plan,active:0,linked:0,missingCard:0})),unlinkedCards:0,unpaidAccounts:0,pendingAccounts:0};
+ const html=renderToStaticMarkup(React.createElement(PilotContent,{data}));
+ assert.equal((html.match(/Revisar las fichas, la aprobación y la cuota/g)||[]).length,3);
+ assert.ok(html.includes('Los tres pilotos siguen pendientes de ejecución con un corredor real.'));
+});
 const {emptyDraft,newExercise}=load(path.join(root,'lib/training-builder.ts'));const Composer=load(path.join(root,'components/TrainingComposer.tsx')).default;
 function render(category){const draft=emptyDraft(category);draft.title=category==='trail'?'Rodaje de montaña':'Fuerza';draft.structure.blocks[1].items.push({...newExercise(),name:category==='trail'?'Subida':'Sentadilla'});const noop=()=>{};return renderToStaticMarkup(React.createElement(Composer,{draft,goals:[],goalId:"",onGoal:noop,purpose:"",onPurpose:noop,goalLoading:false,onTrailWorkout:noop,categoryChosen:true,onCategory:noop,onChange:noop,date:'2026-10-26',onDate:noop,min:'2026-10-26',max:'2026-11-01',editing:true,busy:false,error:'',message:'',templates:[],templateError:'',templateBusy:false,onTemplate:noop,onSaveTemplate:async()=>true,onSave:noop,onCancel:noop,library:[],libraryBusy:false,libraryNotice:'',onLibrarySave:noop}));}
 test('the actual trail editor renders mountain-running inputs without strength load controls',()=>{const html=render('trail');for(const label of ['Series cortas en subida','Técnica de bajada','1. Elige el tipo de sesión','Editar sesión de carrera trail y montaña','Distancia del tramo (km)','Desnivel positivo (m+)','Desnivel negativo (m−)','Terreno','Recuperación (segundos)','Cómo recuperar'])assert.ok(html.includes(label),label);assert.equal(html.includes('Carga (kg)'),false);assert.equal(html.includes('Fuerza para corredores'),false);assert.equal(html.includes('Sentadilla goblet'),false);});
