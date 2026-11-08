@@ -95,6 +95,7 @@ export default function DashboardPage() {
     {error&&<p className={styles.error} role="alert">{error}</p>}
     {!loading && membership?.club && <MessagingShortcut admin={role === "admin"} />}
     {membership?.plan&&<p style={{color:"#ffad5c",fontWeight:800}}>Mi modalidad: {membershipLabels[membership.plan]}</p>}
+    {membership?.source==='pilot'&&<p role="status" style={{color:'#ffbd75'}}>Cuenta de prueba · Acceso temporal hasta {new Date(membership.pilotExpiresAt!).toLocaleString('es-ES',{timeZone:'Europe/Madrid'})}. Sin cuota ni cobro.</p>}
     {paymentAlert&&paymentAlert.count>0&&<section role="status" style={{background:"#2a211b",border:"1px solid #f18b35",borderLeft:"5px solid #f18b35",borderRadius:12,padding:"17px 20px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",gap:14,flexWrap:"wrap"}}>
      <div><strong style={{color:"#ffae63",fontSize:18}}>◷ Avisos de cuotas del club ({paymentAlert.count})</strong><p style={{margin:"7px 0 0",color:"#e7d8ca"}}>{paymentAlert.overdue>0?paymentAlert.overdue+" vencida(s) · ":""}{paymentAlert.upcoming>0?paymentAlert.upcoming+" próxima(s) a vencer · ":""}{paymentAlert.amount.toLocaleString("es-ES",{style:"currency",currency:"EUR"})} en cuotas registradas con aviso</p></div>
      <Link href="/mis-cuotas" style={{background:"#ff922f",color:"#111",fontWeight:800,textDecoration:"none",padding:"11px 15px",borderRadius:9}}>Consultar mis cuotas →</Link>

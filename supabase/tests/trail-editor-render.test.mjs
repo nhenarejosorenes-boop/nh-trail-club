@@ -26,6 +26,14 @@ test('zero pilot candidates remain a preparation task without implying completed
  assert.ok(html.includes('Los tres pilotos siguen pendientes de ejecución con un corredor real.'));
 });
 const {emptyDraft,newExercise}=load(path.join(root,'lib/training-builder.ts'));const Composer=load(path.join(root,'components/TrainingComposer.tsx')).default;
+test('pilot test accounts are visible separately from verified payments',()=>{
+ const groups=['basic','plus','plus_performance'].map(plan=>({plan,active:0,linked:0,missingCard:0}));
+ const data={period:'2026-11-01',checkedAt:'2026-11-08T18:00:00Z',groups,testGroups:groups.map(group=>({...group,active:1,linked:1})),unlinkedCards:0,unpaidAccounts:0,pendingAccounts:0};
+ const html=renderToStaticMarkup(React.createElement(PilotContent,{data}));
+ assert.equal((html.match(/cuenta\(s\) de prueba con ficha y acceso temporal/g)||[]).length,3);
+ assert.ok(html.includes('Usa las cuentas de prueba preparadas'));
+ assert.equal((html.match(/Cuenta de prueba preparada para recorrer esta modalidad/g)||[]).length,3);
+});
 function render(category){const draft=emptyDraft(category);draft.title=category==='trail'?'Rodaje de montaña':'Fuerza';draft.structure.blocks[1].items.push({...newExercise(),name:category==='trail'?'Subida':'Sentadilla'});const noop=()=>{};return renderToStaticMarkup(React.createElement(Composer,{draft,goals:[],goalId:"",onGoal:noop,purpose:"",onPurpose:noop,goalLoading:false,onTrailWorkout:noop,categoryChosen:true,onCategory:noop,onChange:noop,date:'2026-10-26',onDate:noop,min:'2026-10-26',max:'2026-11-01',editing:true,busy:false,error:'',message:'',templates:[],templateError:'',templateBusy:false,onTemplate:noop,onSaveTemplate:async()=>true,onSave:noop,onCancel:noop,library:[],libraryBusy:false,libraryNotice:'',onLibrarySave:noop}));}
 test('the actual trail editor renders mountain-running inputs without strength load controls',()=>{const html=render('trail');for(const label of ['Series cortas en subida','Técnica de bajada','1. Elige el tipo de sesión','Editar sesión de carrera trail y montaña','Distancia del tramo (km)','Desnivel positivo (m+)','Desnivel negativo (m−)','Terreno','Recuperación (segundos)','Cómo recuperar'])assert.ok(html.includes(label),label);assert.equal(html.includes('Carga (kg)'),false);assert.equal(html.includes('Fuerza para corredores'),false);assert.equal(html.includes('Sentadilla goblet'),false);});
 test('the strength editor retains its load inputs and excludes the dedicated trail panel',()=>{const html=render('fuerza');assert.ok(html.includes('Carga (kg)'));assert.equal(html.includes('Desnivel negativo (m−)'),false);assert.equal(html.includes('Rodaje suave</option>'),false);});
