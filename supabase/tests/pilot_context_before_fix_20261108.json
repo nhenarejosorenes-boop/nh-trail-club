@@ -1,0 +1,46 @@
+{
+  "run": "PILOTO-QA-20261108-A",
+  "checkedAt": "2026-11-08T18:51:42.868Z",
+  "scope": "Production Auth/REST with three synthetic pilot accounts; browser UI not validated",
+  "passed": 6,
+  "failed": 1,
+  "results": [
+    {
+      "plan": "basic",
+      "name": "login",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "message_training_context_respects_premium",
+      "pass": false,
+      "error": "Basic account accessed a premium training title through message context",
+      "code": "ERR_ASSERTION"
+    },
+    {
+      "plan": "plus",
+      "name": "login",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "message_training_context_respects_premium",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "login",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "message_training_context_respects_premium",
+      "pass": true
+    },
+    {
+      "plan": "anonymous",
+      "name": "private_data_requires_login",
+      "pass": true
+    }
+  ]
+}
