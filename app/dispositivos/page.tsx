@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from "@/lib/supabase-browser";
 import { IMPORT_PAGE_SIZE, loadDeviceImports, type DeviceImport } from '@/lib/device-history';
 import styles from '@/components/athlete-panels.module.css';
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 const date = (value: string) => new Date(value).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', dateStyle: 'medium', timeStyle: 'short' });
 
 export default function Devices() {

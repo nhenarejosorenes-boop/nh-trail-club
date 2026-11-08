@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase-browser";
 import { loadInbox, loadMessagePage, loadMessageUpdates } from "@/lib/messaging-client";
 import { initialConversation, mergeMessages, messageBody, totalUnread, type ClubMessage, type Conversation } from "@/lib/messaging-model";
 import styles from "./messaging.module.css";
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 type TrainingContext = { id: string; title: string; session_date: string };
 const stamp = (value: string) => new Date(value).toLocaleString("es-ES", { timeZone: "Europe/Madrid", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 

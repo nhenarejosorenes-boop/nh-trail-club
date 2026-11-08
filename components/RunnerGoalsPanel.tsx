@@ -1,10 +1,10 @@
 "use client";
-import {useEffect,useState} from 'react';import Link from 'next/link';import {createClient} from '@supabase/supabase-js';
+import {useEffect,useState} from 'react';import Link from 'next/link';import { supabase as client } from "@/lib/supabase-browser";
 import MembershipNotice from './MembershipNotice';import RunnerGoalForm from './RunnerGoalForm';import RunnerGoalPhases from './RunnerGoalPhases';import RunnerGoalReview from './RunnerGoalReview';
 import {loadMembershipAccess} from '@/lib/membership-client';import type {MembershipAccess} from '@/lib/membership-model';import {loadCoachAthletes} from '@/lib/coach-tracking';import {athleteToday} from '@/lib/training-progress';
 import {loadRunnerGoals,goalKinds,goalPriorities,goalStatuses,daysUntil,type RunnerGoal} from '@/lib/runner-goals';
 import s from './training-builder.module.css';
-const client=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 export default function RunnerGoalsPanel(){
  const [access,setAccess]=useState<MembershipAccess|null>(null);const [checking,setChecking]=useState(true);const [accessError,setAccessError]=useState(false);const [choices,setChoices]=useState<{user_id:string;nombre:string}[]>([]);const [athlete,setAthlete]=useState('');const [goals,setGoals]=useState<RunnerGoal[]>([]);const [goalId,setGoalId]=useState('');const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [reload,setReload]=useState(0);const [form,setForm]=useState(false);const [editing,setEditing]=useState<RunnerGoal|null>(null);const [dirty,setDirty]=useState<Record<string,boolean>>({});
  const admin=access?.state==='admin';const today=athleteToday();const hasDirty=Object.values(dirty).some(Boolean);const goal=goals.find(g=>g.id===goalId)??null;

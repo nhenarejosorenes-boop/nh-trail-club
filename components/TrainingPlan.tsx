@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase-browser";
 import MembershipNotice from "@/components/MembershipNotice";
 import { mountainRunningDraft } from "@/lib/trail-workouts";
 import { loadSectionWeek, sectionSessions, isCategory } from "@/lib/training-sections";
@@ -19,7 +19,7 @@ import type { MembershipAccess } from "@/lib/membership-model";
 import { loadCoachAthletes, plannerContext } from "@/lib/coach-tracking";
 import { emptyDraft, copyDraft, draftFromSession, plainPrescription, readStructure, starterTemplates, validateDraft, normaliseDraft, type Exercise, type LibraryExercise, type Category, type TrainingDraft, type TrainingSession, type TrainingTemplate } from "@/lib/training-builder";
 import s from "./training-builder.module.css";
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 function dateString(d:Date){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
 function shift(value:string,days:number){const d=new Date(value+"T12:00:00");d.setDate(d.getDate()+days);return dateString(d);}
 function monday(d:Date){const x=new Date(d);x.setDate(x.getDate()-(x.getDay()+6)%7);return dateString(x);}

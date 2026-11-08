@@ -2,13 +2,13 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from "@/lib/supabase-browser";
 import AthleteOverview from '@/components/AthleteOverview';
 import AthleteAccountLink from '@/components/AthleteAccountLink';
 import { AthleteAccessError, loadAthleteCard, type AthleteCard } from '@/lib/athlete-detail';
 import styles from '@/components/athlete-panels.module.css';
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 export default function AthleteCardPage() {
   const params = useParams();
   const id = typeof params.id === 'string' ? params.id : '';

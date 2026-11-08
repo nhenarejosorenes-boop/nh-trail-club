@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { supabase } from "@/lib/supabase-browser";
 import styles from "./web-app-chrome.module.css";
 
 const links = [
@@ -32,6 +33,26 @@ function Icon({ kind }: { kind: typeof links[number]["icon"] }) {
 
 export default function WebAppChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const pathRef = useRef(pathname);
+  pathRef.current = pathname;
+  const [switching, setSwitching] = useState(false);
+  useEffect(() => {
+    let initialized = false;
+    let identity: string | null = null;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const next = session?.user.id ?? null;
+      if (!initialized) { initialized = true; identity = next; return; }
+      const changed = identity !== null && next !== identity;
+      identity = next;
+      const publicPath = ["/", "/login", "/instalar", "/ayuda", "/forgot-password", "/reset-password"].includes(pathRef.current);
+      if (!publicPath && (changed || event === "SIGNED_OUT")) {
+        setSwitching(true);
+        // Never call asynchronous Supabase APIs inside the Auth callback.
+        window.location.replace(next ? "/dashboard" : "/login");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
   const [offline, setOffline] = useState(false);
   const [restored, setRestored] = useState(false);
   useEffect(() => {
@@ -45,11 +66,13 @@ export default function WebAppChrome({ children }: { children: ReactNode }) {
   }, []);
   const showNavigation = ["/dashboard", "/entrenamientos", "/salidas", "/mensajes", "/progreso", "/objetivos", "/dispositivos", "/importar-actividad", "/seguimiento-trail", "/mis-cuotas", "/suscripciones", "/admin", "/deportistas", "/entrenador"].some(path => pathname === path || pathname.startsWith(path + "/"));
   const current = section(pathname);
+  if (switching) return <main role="status" style={{padding:32}}>Actualizando sesión…</main>;
   return <div className={showNavigation ? styles.withNavigation : undefined}>
     {(offline || restored) && <div className={styles.connection} role="status" aria-live="polite">
       <span>{offline ? "Sin conexión. Necesitas internet para cargar datos o guardar cambios." : "Conexión recuperada. Si una operación falló, vuelve a intentarla."}</span>
       {!offline && <button type="button" onClick={() => setRestored(false)} aria-label="Cerrar aviso de conexión">Cerrar</button>}
     </div>}
+    {showNavigation && <div style={{padding:"8px 18px",background:"#171819",textAlign:"right"}}><Link href="/ayuda" style={{color:"#ff9b42"}}>Ayuda y primeros pasos</Link></div>}
     {children}
     {showNavigation && <nav className={styles.navigation} aria-label="Navegación móvil">
       {links.map(link => <Link key={link.href} href={link.href} onNavigate={event => {
