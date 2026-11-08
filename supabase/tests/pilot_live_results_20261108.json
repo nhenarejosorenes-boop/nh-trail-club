@@ -1,0 +1,424 @@
+{
+  "run": "PILOTO-QA-20261108-A",
+  "checkedAt": "2026-11-08T18:55:23.777Z",
+  "scope": "Production Auth/REST with three synthetic pilot accounts; browser UI not validated",
+  "passed": 83,
+  "failed": 0,
+  "results": [
+    {
+      "plan": "basic",
+      "name": "login",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "membership_source_and_level",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "own_profile_card_and_grant",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "no_fake_billing_records",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "commercial_request_blocked",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "own_plan_visibility",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "other_plan_not_visible",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "prescription_cannot_be_edited",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "own_completion_authorized_by_plan",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "other_completion_blocked",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "results_save_and_revision",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "goals_phases_and_review_visibility",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "outing_visible",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "register_duplicate_cancel_and_register_again",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "cannot_register_for_another_athlete",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "manual_trail_log_save_and_edit",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "cannot_write_another_athlete_log",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "gpx_parse_import_and_idempotent_retry",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "tcx_parse_import_and_idempotent_retry",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "fit_parse_import_and_idempotent_retry",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "cross_format_duplicate_preserves_existing_activity",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "foreign_plan_link_rejected",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "history_comparison_and_monthly_progress",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "messages_send_retry_read_and_inbox",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "foreign_conversation_is_private",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "login",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "membership_source_and_level",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "own_profile_card_and_grant",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "no_fake_billing_records",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "commercial_request_blocked",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "own_plan_visibility",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "other_plan_not_visible",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "prescription_cannot_be_edited",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "own_completion_authorized_by_plan",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "other_completion_blocked",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "results_save_and_revision",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "goals_phases_and_review_visibility",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "outing_visible",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "register_duplicate_cancel_and_register_again",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "cannot_register_for_another_athlete",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "manual_trail_log_save_and_edit",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "cannot_write_another_athlete_log",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "gpx_parse_import_and_idempotent_retry",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "tcx_parse_import_and_idempotent_retry",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "fit_parse_import_and_idempotent_retry",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "cross_format_duplicate_preserves_existing_activity",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "foreign_plan_link_rejected",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "history_comparison_and_monthly_progress",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "messages_send_retry_read_and_inbox",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "foreign_conversation_is_private",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "login",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "membership_source_and_level",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "own_profile_card_and_grant",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "no_fake_billing_records",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "commercial_request_blocked",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "own_plan_visibility",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "other_plan_not_visible",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "prescription_cannot_be_edited",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "own_completion_authorized_by_plan",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "other_completion_blocked",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "results_save_and_revision",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "goals_phases_and_review_visibility",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "outing_visible",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "register_duplicate_cancel_and_register_again",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "cannot_register_for_another_athlete",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "manual_trail_log_save_and_edit",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "cannot_write_another_athlete_log",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "gpx_parse_import_and_idempotent_retry",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "tcx_parse_import_and_idempotent_retry",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "fit_parse_import_and_idempotent_retry",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "cross_format_duplicate_preserves_existing_activity",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "foreign_plan_link_rejected",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "history_comparison_and_monthly_progress",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "messages_send_retry_read_and_inbox",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "foreign_conversation_is_private",
+      "pass": true
+    },
+    {
+      "plan": "all",
+      "name": "outing_capacity_with_three_accounts",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "cleanup_outing_registration",
+      "pass": true
+    },
+    {
+      "plan": "basic",
+      "name": "logout",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "cleanup_outing_registration",
+      "pass": true
+    },
+    {
+      "plan": "plus",
+      "name": "logout",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "cleanup_outing_registration",
+      "pass": true
+    },
+    {
+      "plan": "plus_performance",
+      "name": "logout",
+      "pass": true
+    },
+    {
+      "plan": "anonymous",
+      "name": "private_data_requires_login",
+      "pass": true
+    }
+  ]
+}
