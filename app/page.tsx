@@ -22,8 +22,8 @@ export default function Home() {
           NH TRAINING CONCEPT
         </p>
 
-        <h1 style={{ fontSize: "48px", marginBottom: "10px" }}>
-          NH / CLUB TRAIL RUNNING ALICANTE
+        <h1 style={{ fontSize: "clamp(30px,7vw,48px)", marginBottom: "10px" }}>
+          NH Club Trail Running Alicante
         </h1>
 
         <h2
@@ -71,6 +71,7 @@ export default function Home() {
           >
             Acceder a mi panel
           </Link>
+          <p><Link href="/instalar" style={{color:"#ffad63",lineHeight:1.6}}>Instalar la aplicación en mi móvil →</Link></p>
         </div>
       </div>
     </main>

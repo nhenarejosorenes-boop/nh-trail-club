@@ -1,0 +1,6 @@
+html{background:#101113;color-scheme:dark}
+body{margin:0;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)}
+*,*::before,*::after{box-sizing:border-box}
+:where(a,button,input,select,textarea):focus-visible{outline:3px solid #ffad63;outline-offset:3px}
+@media(max-width:700px){input,select,textarea{font-size:16px!important}button{touch-action:manipulation}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
