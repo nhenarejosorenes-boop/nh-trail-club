@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase-browser";
 import MembershipNotice from "./MembershipNotice";
 import { loadMembershipAccess } from "@/lib/membership-client";
 import { membershipLabels, type MembershipAccess } from "@/lib/membership-model";
 import styles from "./athlete-panels.module.css";
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 const panels = [
   { title: "Mi objetivo y preparación", text: "Objetivo principal, etapas de preparación y revisión semanal con tu entrenador.", icon: "🎯", href: "/objetivos", premium: true },
   { title: "Mi entrenador", text: "Conversación privada con el equipo entrenador, dudas sobre sesiones y mensajes del club.", icon: "✉", href: "/mensajes", premium: false },

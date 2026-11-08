@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase-browser";
 import styles from "./dashboard.module.css";
 import MembershipNotice from "@/components/MembershipNotice";
 import DailyTrainingPanel from "@/components/DailyTrainingPanel";
@@ -11,7 +11,7 @@ import MessagingShortcut from "@/components/MessagingShortcut";
 import { loadMembershipAccess } from "@/lib/membership-client";
 import { membershipLabels, type MembershipAccess } from "@/lib/membership-model";
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 type Training = { id:string; session_date:string; category:string; title:string; details:string; completed:boolean };
 type PaymentAlert = {count:number;overdue:number;upcoming:number;amount:number};
 type Outing = { id:string; title:string; starts_at:string; location:string|null; activity_type:string|null };

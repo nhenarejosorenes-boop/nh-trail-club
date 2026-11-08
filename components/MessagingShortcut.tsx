@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase-browser";
 import { loadInbox } from "@/lib/messaging-client";
 import { totalUnread } from "@/lib/messaging-model";
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 export default function MessagingShortcut({ admin = false }: { admin?: boolean }) {
   const [unread, setUnread] = useState<number | null>(null);
   const [error, setError] = useState(false);

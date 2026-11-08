@@ -1,14 +1,14 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase-browser";
 import { athleteToday, monthRange, trainingProgress, type TrailEntry } from "@/lib/training-progress";
 import { loadTrailMonth, trailRecord, type TrailDraft } from "@/lib/trail-log";
 import { loadTrailSessionChoices, trailLinkContext, type TrailSessionChoice } from "@/lib/trail-session-link";
 import { requestedEntry } from "@/lib/daily-training";
 import styles from "@/components/athlete-panels.module.css";
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 const emptyDraft = (): TrailDraft => ({ date: athleteToday(), distance: "", elevation: "", duration: "", effort: "", feelings: "" });
 const field: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
 const button: React.CSSProperties = { background: "#f28c28", border: 0, borderRadius: 8, padding: "12px 18px", fontWeight: 700, cursor: "pointer", color: "#111" };

@@ -1,40 +1,41 @@
 
 "use client";
 
-import { FormEvent, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { FormEvent, useRef, useState } from "react";
+import { supabase } from "@/lib/supabase-browser";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
+
 
 export default function ForgotPasswordPage() {
+  const lock = useRef(false);
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if(lock.current)return;
+    lock.current=true;
     setLoading(true);
     setMessage("");
 
+    try {
     const { error } = await supabase.auth.resetPasswordForEmail(
-      email,
+      email.trim(),
       {
         redirectTo: `${window.location.origin}/reset-password`,
       }
     );
 
     if (error) {
-      setMessage("Error: " + error.message);
+      setMessage("No se pudo enviar el enlace. Comprueba el correo y espera unos minutos antes de intentarlo de nuevo.");
     } else {
       setMessage(
         "Si el correo está registrado, recibirás un enlace para cambiar tu contraseña. Revisa también la carpeta de spam."
       );
     }
 
-    setLoading(false);
+    } catch { setMessage("No se pudo enviar. Comprueba tu conexión e inténtalo de nuevo."); } finally { lock.current=false;setLoading(false); }
   }
 
   return (
@@ -61,7 +62,11 @@ export default function ForgotPasswordPage() {
         <p>Introduce tu correo electrónico.</p>
 
         <form onSubmit={handleSubmit}>
+          <label htmlFor="recovery-email">Correo electrónico</label>
           <input
+            id="recovery-email"
+            autoComplete="email"
+            disabled={loading}
             type="email"
             placeholder="Correo electrónico"
             value={email}

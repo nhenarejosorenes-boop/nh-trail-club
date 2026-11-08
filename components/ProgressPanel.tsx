@@ -1,14 +1,14 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase-browser";
 import MembershipNotice from "./MembershipNotice";
 import { loadMembershipAccess } from "@/lib/membership-client";
 import type { MembershipAccess } from "@/lib/membership-model";
 import { athleteToday, monthRange, trainingProgress, type ProgressSession, type TrailEntry } from "@/lib/training-progress";
 import { loadTrailMonth } from "@/lib/trail-log";
 import styles from "./athlete-panels.module.css";
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 const number = (n: number) => n.toLocaleString("es-ES", { maximumFractionDigits: 1 });
 const dateLabel = (date: string) => new Date(date + "T12:00:00Z").toLocaleDateString("es-ES", { timeZone: "Europe/Madrid", day: "numeric", month: "short" });
 const duration = (minutes: number) => Math.floor(minutes / 60) + " h " + minutes % 60 + " min";

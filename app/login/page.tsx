@@ -1,13 +1,10 @@
 
 "use client";
 
-import { FormEvent, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { FormEvent, useRef, useState } from "react";
+import { supabase } from "@/lib/supabase-browser";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
+
 
 const inputStyle = {
   width: "100%",
@@ -34,6 +31,7 @@ const buttonStyle = {
 };
 
 export default function LoginPage() {
+  const lock=useRef(false);
   const [register, setRegister] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -52,7 +50,7 @@ export default function LoginPage() {
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    if (loading) return;
+    if (lock.current) return;
 
     setMessage("");
 
@@ -76,6 +74,7 @@ export default function LoginPage() {
       }
     }
 
+    lock.current=true;
     setLoading(true);
 
     try {
@@ -93,7 +92,7 @@ export default function LoginPage() {
         });
 
         if (error) {
-          setMessage(error.message);
+          setMessage("No se pudo completar el acceso. Comprueba el correo y la contraseña, confirma tu correo si acabas de registrarte o solicita un enlace de recuperación.");
           return;
         }
 
@@ -118,7 +117,7 @@ export default function LoginPage() {
       });
 
       if (error) {
-        setMessage(error.message);
+        setMessage("No se pudo completar el acceso. Comprueba el correo y la contraseña, confirma tu correo si acabas de registrarte o solicita un enlace de recuperación.");
         return;
       }
 
@@ -128,6 +127,7 @@ export default function LoginPage() {
         "Ha ocurrido un error de conexión. Inténtalo de nuevo."
       );
     } finally {
+      lock.current=false;
       setLoading(false);
     }
   }
@@ -158,6 +158,7 @@ export default function LoginPage() {
           NH TRAINING CONCEPT
         </p>
 
+        <p><a href="/ayuda" style={{color:"#f28c28"}}>Ayuda para empezar</a></p>
         <h1
           style={{
             fontSize: "40px",

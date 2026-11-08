@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase-browser";
 import { athleteToday, monthRange, trainingProgress } from "@/lib/training-progress";
 import { loadCoachAthletes, loadCoachMonth, type CoachAthlete, type CoachLog, type CoachPlan } from "@/lib/coach-tracking";
 import coach from "./coach.module.css";
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 const panel: React.CSSProperties = { padding: 20, borderRadius: 12, marginBottom: 24 };
 const field: React.CSSProperties = { display: "block", marginTop: 8, background: "#242424", color: "white", padding: 12, border: "1px solid #555", borderRadius: 8, maxWidth: "100%" };
 const fmt = (value: number) => value.toLocaleString("es-ES", { maximumFractionDigits: 1 });

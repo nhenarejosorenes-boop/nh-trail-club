@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import Link from 'next/link';
-import {createClient} from '@supabase/supabase-js';
+import { supabase } from "@/lib/supabase-browser";
 import type {ActivityFile} from '@/lib/activity-import';
 import {activityKey,importedDraft,likelySameActivity,sha256} from '@/lib/activity-import-review';
 import {trailRecord,type TrailDraft} from '@/lib/trail-log';
@@ -9,7 +9,7 @@ import {athleteToday,type TrailEntry} from '@/lib/training-progress';
 import { loadTrailSessionChoices, trailLinkContext } from '@/lib/trail-session-link';
 import styles from '@/components/athlete-panels.module.css';
 
-const supabase=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 const button={background:'#f28c28',color:'#111',border:0,borderRadius:8,padding:'12px 18px',fontWeight:700,cursor:'pointer'};
 type Plan={id:string;session_date:string;title:string};
 export default function ImportActivity(){

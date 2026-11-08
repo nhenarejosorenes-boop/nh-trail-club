@@ -1,14 +1,14 @@
 "use client";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from "@/lib/supabase-browser";
 import PilotReadinessContent from '@/components/PilotReadiness';
 import { loadPilotReadiness, type PilotReadiness } from '@/lib/pilot-readiness';
 import { AthleteAccessError } from '@/lib/athlete-detail';
 import { membershipMonth } from '@/lib/membership-model';
 import styles from '@/components/athlete-panels.module.css';
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
+
 export default function PilotPage() {
   const [reload,setReload] = useState(0);
   const [result,setResult] = useState<{ key: number; data: PilotReadiness | null; error: string } | null>(null);

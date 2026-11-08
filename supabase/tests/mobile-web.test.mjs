@@ -17,6 +17,7 @@ const code = transformSync(readFileSync(file, 'utf8'), {
 function chrome(pathname, hooks = React, environment = {}) {
   const module = { exports: {} };
   function local(name) {
+    if (name === '@/lib/supabase-browser') return {supabase:{auth:{onAuthStateChange(callback){environment.authCallback=callback;return {data:{subscription:{unsubscribe(){environment.unsubscribed=true}}}}}}}};
     if (name === 'react') return hooks;
     if (name === 'next/navigation') return { usePathname: () => pathname };
     if (name === 'next/link') return { __esModule: true, default: ({ children, onNavigate, ...props }) => React.createElement('a', props, children) };
@@ -44,7 +45,7 @@ for (const [pathname, href] of [
 }
 
 test('public and account recovery screens have no club navigation', () => {
-  for (const pathname of ['/', '/login', '/instalar', '/forgot-password', '/reset-password', '/dashboard-invalid']) {
+  for (const pathname of ['/', '/login', '/instalar', '/ayuda', '/forgot-password', '/reset-password', '/dashboard-invalid']) {
     const html = renderToStaticMarkup(React.createElement(chrome(pathname), null, 'Contenido'));
     assert.equal(html.includes('Navegación móvil'), false, pathname);
   }
@@ -54,6 +55,7 @@ function harness(pathname, online = true) {
   const states = [], effects = [], target = new EventTarget();
   let cursor = 0;
   const hooks = { ...React,
+    useRef(initial) {const index=cursor++;if(!(index in states))states[index]={current:initial};return states[index]},
     useState(initial) {
       const index = cursor++;
       if (!(index in states)) states[index] = initial;
@@ -61,9 +63,11 @@ function harness(pathname, online = true) {
     },
     useEffect(effect) { effects.push(effect); },
   };
-  const browserWindow = { dispatchEvent: event => target.dispatchEvent(event), addEventListener: (...args) => target.addEventListener(...args), removeEventListener: (...args) => target.removeEventListener(...args) };
-  const Component = chrome(pathname, hooks, { window: browserWindow, navigator: { onLine: online } });
-  return { target, states, effects,
+  const redirects=[];
+  const browserWindow = { location:{replace:path=>redirects.push(path)}, dispatchEvent: event => target.dispatchEvent(event), addEventListener: (...args) => target.addEventListener(...args), removeEventListener: (...args) => target.removeEventListener(...args) };
+  const environment={ window: browserWindow, navigator: { onLine: online } };
+  const Component = chrome(pathname, hooks, environment);
+  return { target, states, effects,environment,redirects,
     render() { cursor = 0; return Component({ children: 'Contenido' }); },
   };
 }
@@ -90,7 +94,7 @@ test('navigation honors the editor veto and proceeds when it is cleared', () => 
 test('connection loss, recovery, dismissal and listener cleanup work together', () => {
   const h = harness('/dashboard');
   h.render();
-  const cleanup = h.effects[0]();
+  const cleanup = h.effects[1]();
   h.target.dispatchEvent(new Event('offline'));
   let html = renderToStaticMarkup(h.render());
   assert.ok(html.includes('Sin conexión.'));
@@ -103,15 +107,18 @@ test('connection loss, recovery, dismissal and listener cleanup work together', 
   assert.equal(renderToStaticMarkup(h.render()).includes('Conexión recuperada.'), false);
   cleanup();
   h.target.dispatchEvent(new Event('offline'));
-  assert.equal(h.states[0], false);
+  assert.equal(h.states[2], false);
 });
 
 test('opening the app offline immediately exposes the connection warning', () => {
   const h = harness('/dashboard', false);
   h.render();
-  const cleanup = h.effects[0]();
+  const cleanup = h.effects[1]();
   assert.ok(renderToStaticMarkup(h.render()).includes('Sin conexión.'));
   h.target.dispatchEvent(new Event('online'));
   assert.ok(renderToStaticMarkup(h.render()).includes('Conexión recuperada.'));
   cleanup();
 });
+
+for(const event of ['SIGNED_OUT','SIGNED_IN'])test(`cached content disappears on ${event} identity change`,()=>{const h=harness('/dashboard');h.render();const cleanup=h.effects[0]();h.environment.authCallback('INITIAL_SESSION',{user:{id:'A'}});h.environment.authCallback(event,event==='SIGNED_OUT'?null:{user:{id:'B'}});assert.deepEqual(h.redirects,[event==='SIGNED_OUT'?'/login':'/dashboard']);assert.equal(renderToStaticMarkup(h.render()).includes('Contenido'),false);cleanup();assert.equal(h.environment.unsubscribed,true)});
+test('token refresh preserves current content and public recovery is not redirected',()=>{for(const path of ['/dashboard','/reset-password']){const h=harness(path);h.render();h.effects[0]();h.environment.authCallback('INITIAL_SESSION',{user:{id:'A'}});h.environment.authCallback('TOKEN_REFRESHED',{user:{id:'A'}});assert.equal(h.redirects.length,0);assert.ok(renderToStaticMarkup(h.render()).includes('Contenido'));if(path==='/reset-password'){h.environment.authCallback('SIGNED_OUT',null);assert.equal(h.redirects.length,0)}}});
