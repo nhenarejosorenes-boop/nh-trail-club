@@ -33,6 +33,7 @@ export default function ProgressPanel() {
       const uid = auth.data.user.id;
       const membership = await loadMembershipAccess(supabase, uid);
       if (!active) return;
+      if (membership.state === 'coach') { window.location.replace('/entrenador/seguimiento'); return; }
       setAccess(membership);
       if (!membership.premium) { setSessions([]); setEntries([]); return; }
       const [plan, log] = await Promise.all([

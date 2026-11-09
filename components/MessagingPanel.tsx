@@ -1,4 +1,5 @@
 "use client";
+import { canCoach } from "@/lib/staff-access";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase-browser";
@@ -66,7 +67,7 @@ export default function MessagingPanel() {
         ]);
         if (profile.error) throw profile.error;
         if (!active) return;
-        const isAdmin = profile.data?.role === "admin";
+        const isAdmin = canCoach(profile.data?.role);
         const params = new URLSearchParams(window.location.search);
         const athlete = initialConversation(conversations, params.get("athlete"), userId, isAdmin);
         setUid(userId); setAdmin(isAdmin); setInbox(conversations); setSelected(athlete);

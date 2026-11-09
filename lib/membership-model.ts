@@ -2,7 +2,7 @@ export type MembershipPlan = "basic" | "plus" | "plus_performance";
 export type MembershipRequest = { id: string; plan: string; status: string };
 export type MembershipDue = { subscription_id: string; period_month: string; amount_eur: number | string; status: string };
 export type MembershipAccess = {
-  state: "admin" | "active" | "pending" | "unpaid" | "none";
+  state: "admin" | "coach" | "active" | "pending" | "unpaid" | "none";
   plan: MembershipPlan | null;
   club: boolean;
   premium: boolean;
@@ -27,6 +27,7 @@ export function resolveMembershipAccess(
   role: string | null, requests: readonly MembershipRequest[], dues: readonly MembershipDue[], at = new Date(),
 ): MembershipAccess {
   if (role === "admin") return { state: "admin", plan: null, club: true, premium: true };
+  if (role === "coach") return { state: "coach", plan: null, club: true, premium: true };
   const valid = requests.filter((s): s is MembershipRequest & { plan: MembershipPlan } =>
     Object.hasOwn(rank, s.plan));
   const approved = valid.filter(s => s.status === "approved");

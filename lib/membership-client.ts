@@ -4,17 +4,20 @@ import { resolvePilotMembership, type PilotMembership } from './pilot-membership
 
 export async function loadMembershipAccess(client: SupabaseClient, userId: string, knownRole?: string) {
   const at = new Date();
-  const [profile, subscriptions, pilot] = await Promise.all([
-    knownRole === undefined ? client.from("profiles").select("role").eq("id", userId).single() :
-      Promise.resolve({ data: { role: knownRole }, error: null }),
+  const profile = knownRole === undefined
+    ? await client.from("profiles").select("role").eq("id", userId).single()
+    : { data: { role: knownRole }, error: null };
+  if (profile.error) throw profile.error;
+  if (!profile.data) throw new Error('No se pudo comprobar el perfil.');
+  if (profile.data.role === 'admin' || profile.data.role === 'coach')
+    return resolveMembershipAccess(profile.data.role, [], [], at);
+  const [subscriptions, pilot] = await Promise.all([
     client.from("club_subscription_requests").select("id,plan,status").eq("user_id", userId).in("status", ["approved", "pending"]),
     client.from('club_pilot_memberships').select('user_id,plan,starts_at,expires_at').eq('user_id',userId).maybeSingle(),
   ]);
-  if (profile.error) throw profile.error;
   if (subscriptions.error) throw subscriptions.error;
   if (pilot.error) throw pilot.error;
   const requests = (subscriptions.data ?? []) as MembershipRequest[];
-  if (profile.data.role === "admin") return resolveMembershipAccess("admin", requests, [], at);
   const testAccess=resolvePilotMembership(pilot.data as PilotMembership | null,at);
   if (testAccess) return testAccess;
   const approved = requests.filter(s => s.status === "approved").map(s => s.id);

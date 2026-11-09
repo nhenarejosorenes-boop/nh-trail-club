@@ -4,6 +4,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase-browser";
 import MembershipNotice from "./MembershipNotice";
 import { loadMembershipAccess } from "@/lib/membership-client";
+import { coachLinks } from "@/lib/staff-access";
 import { membershipLabels, type MembershipAccess } from "@/lib/membership-model";
 import styles from "./athlete-panels.module.css";
 
@@ -34,6 +35,10 @@ export default function TrainingHub() {
   }, []);
   if (loading) return <main className={styles.page}><p role="status">Cargando mis entrenamientos...</p></main>;
   if (error || !access?.club) return <MembershipNotice access={access} error={error} />;
+  if(access.state === 'coach') return <main className={styles.page}><div className={styles.inner}>
+    <Link className={styles.back} href="/dashboard">← Mi panel</Link><h1>Programación deportiva</h1>
+    <div className={styles.cards}>{coachLinks.map(link=><Link key={link.href} className={styles.card} href={link.href}><h2>{link.title}</h2><p>{link.text}</p></Link>)}</div>
+  </div></main>;
   return <main className={styles.page}><div className={styles.inner}>
     <p className={styles.brand}>NH TRAINING CONCEPT</p><Link className={styles.back} href="/dashboard">← Volver al panel principal</Link>
     <h1>Mis entrenamientos</h1><p className={styles.intro}>Elige una sección para consultar tu planificación, registrar tus sesiones y seguir tu evolución.</p>
