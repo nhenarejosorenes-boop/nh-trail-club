@@ -15,6 +15,7 @@ import { videoLink } from "@/lib/training-video";
 import TrainingComposer from "./TrainingComposer";
 import TrainingSessionContent from "./TrainingSessionContent";
 import { loadMembershipAccess } from "@/lib/membership-client";
+import { hasCoachingAccess } from "@/lib/staff-access";
 import type { MembershipAccess } from "@/lib/membership-model";
 import { loadCoachAthletes, plannerContext } from "@/lib/coach-tracking";
 import { emptyDraft, copyDraft, draftFromSession, plainPrescription, readStructure, starterTemplates, validateDraft, normaliseDraft, type Exercise, type LibraryExercise, type Category, type TrainingDraft, type TrainingSession, type TrainingTemplate } from "@/lib/training-builder";
@@ -79,12 +80,12 @@ export default function TrainingPlan({categoryFilter,showEditor=false}:{category
       const ownParams=new URLSearchParams(window.location.search);
       const ownContext=plannerContext([],uid,null,ownParams.get("date"));
       if(ownContext.week){setWeek(ownContext.week);setDate(ownParams.get("date")!);if(ownParams.get("session"))setDay(ownParams.get("date")!);}
-      if(access.state==="admin"){
-        setAdmin(true);const linked=(await loadCoachAthletes(supabase)).filter(a=>a.user_id!==null);if(!active)return;setAthletes(linked);
-        const params=new URLSearchParams(window.location.search);const requestedType=params.get("type");if(showEditor&&isCategory(requestedType)){setCreationCategory(requestedType);setCategoryChosen(true);setDraft(emptyDraft(requestedType));}const context=plannerContext(linked,uid,params.get("athlete"),params.get("date"));target=context.athleteId;
+      if(hasCoachingAccess(access)){
+        const linked=(await loadCoachAthletes(supabase,access.state)).filter(a=>a.user_id!==null);if(!active)return;setAdmin(true);setAthletes(linked);
+        const params=new URLSearchParams(window.location.search);const requestedType=params.get("type");if(showEditor&&isCategory(requestedType)){setCreationCategory(requestedType);setCategoryChosen(true);setDraft(emptyDraft(requestedType));}const context=plannerContext(linked,access.state==="coach"?(linked[0]?.user_id??""):uid,params.get("athlete"),params.get("date"));target=context.athleteId;
         if(context.week){setWeek(context.week);setDate(context.week);}
       }
-      setSelected(target);
+      setSelected(target);if(!target)setLoading(false);
     }catch{if(active){setAccessError(true);setLoading(false);}}})();return()=>{active=false;};
   },[]);
   useEffect(()=>{
@@ -157,13 +158,14 @@ export default function TrainingPlan({categoryFilter,showEditor=false}:{category
   const filtered=sectionSessions(sessions,categoryFilter);const visible=day?filtered.filter(x=>x.session_date===day):filtered;
   const locked=busy||templateBusy||libraryBusy;
   const heading=categoryFilter==="fuerza"?"Entrenamiento de fuerza":categoryFilter==="trail"?"Entrenamiento Trail Running":showEditor?"Planificación semanal":"Mis entrenamientos";
+  if(!loading&&membership?.state==='coach'&&!selected&&!accessError&&admin)return <main className={s.panel}><h1>Programación deportiva</h1><p>No hay deportistas con una cuenta vinculada disponibles para programar.</p><Link href="/dashboard">Volver a mi panel</Link></main>;
   if(loading&&!membership&&!accessError)return <main style={{padding:40,background:"#111",color:"white",minHeight:"100vh"}}><p role="status">Comprobando tu acceso…</p></main>;
   if(accessError||!membership?.premium)return <MembershipNotice access={membership} error={accessError}/>;
   return <main onClickCapture={e=>{const a=(e.target as HTMLElement).closest?.("a");if(a&&a.target!=="_blank"&&dirtyResults&&!window.confirm("¿Salir y descartar los resultados sin guardar?"))e.preventDefault();}} style={{minHeight:"100vh",background:"#111",color:"white",padding:"30px 14px",fontFamily:"Arial,sans-serif"}}><div className={s.shell}>
     <p className={s.eyebrow}>NH TRAINING CONCEPT</p><Link href="/dashboard" style={{color:"#ffad63"}}>← Volver a mi panel</Link><h1>{heading}</h1><p className={s.muted}>{categoryFilter==="fuerza"?"Solo sesiones clasificadas como fuerza.":categoryFilter==="trail"?"Solo sesiones de carrera clasificadas como trail.":"Todas las modalidades: fuerza, trail, movilidad y descanso."}</p>
     {admin&&categoryFilter&&<p><Link className={s.button} href={"/entrenamientos/plan?"+new URLSearchParams({type:categoryFilter,athlete:selected,date:week}).toString()}>Programar {categoryFilter==="trail"?"carrera trail / montaña":"fuerza"} →</Link></p>}
     <nav className={s.bar} aria-label="Tipos de entrenamiento">{[{href:"/entrenamientos",label:"Secciones",active:!categoryFilter&&!showEditor},{href:"/entrenamientos/fuerza",label:"Fuerza",active:categoryFilter==="fuerza"},{href:"/entrenamientos/trail",label:"Trail",active:categoryFilter==="trail"},{href:"/entrenamientos/plan",label:"Planificación semanal",active:showEditor}].map(x=><Link className={`${s.button} ${x.active?"":s.secondary}`} aria-current={x.active?"page":undefined} key={x.href} href={x.href}>{x.label}</Link>)}</nav>
-    {admin&&<label className={s.label}>Deportista<select className={s.field} value={selected} disabled={locked} onChange={e=>{if(e.target.value===selected||!discard())return;setGoals([]);setPhases([]);setGoalLoading(true);setSelected(e.target.value);setSessions([]);clearEditor();setMessage("");}}><option value={userId}>Mi planificación</option>{athletes.filter(a=>a.user_id&&a.user_id!==userId).map(a=><option key={a.user_id!} value={a.user_id!}>{a.nombre}</option>)}</select></label>}
+    {admin&&<label className={s.label}>Deportista<select className={s.field} value={selected} disabled={locked} onChange={e=>{if(e.target.value===selected||!discard())return;setGoals([]);setPhases([]);setGoalLoading(true);setSelected(e.target.value);setSessions([]);clearEditor();setMessage("");}}>{membership?.state!=="coach"&&<option value={userId}>Mi planificación</option>}{membership?.state==="coach"&&!athletes.length&&<option value="">Sin deportistas vinculados</option>}{athletes.filter(a=>a.user_id&&a.user_id!==userId).map(a=><option key={a.user_id!} value={a.user_id!}>{a.nombre}</option>)}</select></label>}
     <RunnerGoalContext review={previousReview} goal={mainGoal} phases={phases} week={week} today={athleteToday()} athlete={selected} admin={admin} loading={goalLoading} error={goalError} onRetry={()=>setGoalReload(v=>v+1)}/>
     <div className={s.bar}><button className={`${s.button} ${s.secondary}`} disabled={locked} onClick={()=>moveWeek(-7)}>← Anterior</button><strong>{new Date(week+"T12:00:00").toLocaleDateString("es-ES")} — {new Date(shift(week,6)+"T12:00:00").toLocaleDateString("es-ES")}</strong><button className={`${s.button} ${s.secondary}`} disabled={locked} onClick={()=>moveWeek(7)}>Siguiente →</button></div>
     <nav className={s.week} aria-label="Días de la semana">{Array.from({length:7},(_,n)=>{const value=shift(week,n),d=new Date(value+"T12:00:00"),count=filtered.filter(x=>x.session_date===value).length;return <button key={value} className={`${s.day} ${day===value?s.active:""}`} aria-pressed={day===value} aria-label={`${d.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})}: ${count} sesiones`} disabled={loading} onClick={()=>{if(dirtyResults&&!window.confirm("¿Cambiar de día y descartar los resultados sin guardar?"))return;setDay(v=>v===value?"":value);}}><span>{d.toLocaleDateString("es-ES",{weekday:"short"})}</span><strong>{d.getDate()}</strong><small>{loading?"…":count?`${count} sesión${count===1?"":"es"}`:"Sin sesión"}</small></button>;})}</nav>

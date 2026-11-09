@@ -431,6 +431,7 @@ export default function AdminPage() {
 
         {autorizado && (
           <>
+            <p><Link href="/admin/entrenadores" style={{ color: "#ffad63" }}>Gestionar entrenadores →</Link></p>
             <p><Link href="/admin/piloto" style={{ color: "#ffad63" }}>Preparar piloto de las tres modalidades →</Link></p>
             <section
               style={{

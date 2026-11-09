@@ -4,6 +4,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase-browser";
 import styles from "./dashboard.module.css";
 import MembershipNotice from "@/components/MembershipNotice";
+import CoachHome from "@/components/CoachHome";
 import DailyTrainingPanel from "@/components/DailyTrainingPanel";
 import { athleteToday } from "@/lib/training-progress";
 import { madridWeekBounds } from "@/lib/daily-training";
@@ -53,6 +54,7 @@ export default function DashboardPage() {
    setOutings((activities.data??[]) as Outing[]);
    setRegistered((registrations.data??[]).map(r=>r.activity_id));
    // Only the logged-in athlete's subscriptions and monthly dues are visible under RLS.
+   if(profile.data?.role==="coach")return;
    const {data:subscriptions,error:subError}=await supabase.from("club_subscription_requests").select("id").eq("user_id",uid).eq("status","approved");
    if(active&&!subError){
     const ids=(subscriptions??[]).map(s=>s.id);
@@ -73,10 +75,11 @@ export default function DashboardPage() {
   finally{if(active)setLoading(false);}
  }void load();return()=>{active=false};},[]);
  async function logout(){const {error:e}=await supabase.auth.signOut();if(e)setError("No se pudo cerrar la sesión.");else window.location.replace("/login");}
+ if(!loading&&role==="coach"&&membership?.state==="coach")return <CoachHome name={name} logout={()=>void logout()}/>;
  const completed=trainings.filter(s=>s.completed).length;
  if(!loading&&!membership?.club)return <MembershipNotice access={membership} error={!membership} />;
 
- const navigation=[{icon:"⌂",label:"Inicio",href:"/dashboard"},{icon:"✉",label:role==="admin"?"Mensajes":"Mi entrenador",href:"/mensajes"},{icon:"◫",label:"Plan semanal",href:"/entrenamientos/plan"},{icon:"↗",label:"Entrenamientos",href:"/entrenamientos"},{icon:"△",label:"Salidas del club",href:"/salidas"},{icon:"▥",label:"Mi progreso",href:"/progreso"},{icon:"★",label:"PLUS / Performance",href:"/suscripciones"},{icon:"◷",label:"Mis cuotas y avisos",href:"/mis-cuotas"},...(role==="admin"?[{icon:"♙",label:"Deportistas",href:"/deportistas"},{icon:"▤",label:"Panel entrenador",href:"/entrenador/seguimiento"},{icon:"★",label:"Gestión PLUS",href:"/admin/suscripciones"},{icon:"✓",label:"Preparar piloto",href:"/admin/piloto"},{icon:"⚙",label:"Administración",href:"/admin"}]:[])];
+ const navigation=[{icon:"⌂",label:"Inicio",href:"/dashboard"},{icon:"✉",label:role==="admin"?"Mensajes":"Mi entrenador",href:"/mensajes"},{icon:"◫",label:"Plan semanal",href:"/entrenamientos/plan"},{icon:"↗",label:"Entrenamientos",href:"/entrenamientos"},{icon:"△",label:"Salidas del club",href:"/salidas"},{icon:"▥",label:"Mi progreso",href:"/progreso"},{icon:"★",label:"PLUS / Performance",href:"/suscripciones"},{icon:"◷",label:"Mis cuotas y avisos",href:"/mis-cuotas"},...(role==="admin"?[{icon:"♙",label:"Deportistas",href:"/deportistas"},{icon:"▤",label:"Panel entrenador",href:"/entrenador/seguimiento"},{icon:"★",label:"Gestión PLUS",href:"/admin/suscripciones"},{icon:"♙",label:"Entrenadores",href:"/admin/entrenadores"},{icon:"✓",label:"Preparar piloto",href:"/admin/piloto"},{icon:"⚙",label:"Administración",href:"/admin"}]:[])];
  return <main className={styles.shell}>
   <aside className={styles.sidebar}>
    <Link href="/dashboard" className={styles.brand}><span className={styles.brandMark}>NH<span>⌁</span></span><small>CLUB TRAIL RUNNING ALICANTE</small></Link>

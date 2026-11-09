@@ -15,12 +15,15 @@ async function pages<T>(fetchPage: (from: number, to: number) => PromiseLike<{ d
   }
 }
 
-export function loadCoachAthletes(client: SupabaseClient) {
+export async function loadCoachAthletes(client: SupabaseClient, role?: string) {
+  if (role === 'coach') {
+    return pages<CoachAthlete>((from, to) => client.rpc('coaching_roster').range(from, to));
+  }
   return pages<CoachAthlete>((from, to) => client.from("deportistas").select("id,nombre,nivel,user_id")
     .order("nombre").order("id").range(from, to));
 }
 
-// The caller verifies the administrator role; RLS remains authoritative for every page.
+// The caller verifies the coaching role; RLS remains authoritative for every page.
 export async function loadCoachMonth(client: SupabaseClient, range: { start: string; end: string }) {
   const [logs, plans] = await Promise.all([
     pages<CoachLog>((from, to) => client.from("trail_activity_log")

@@ -1,4 +1,5 @@
 "use client";
+import { canCoach } from "@/lib/staff-access";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase-browser";
@@ -27,6 +28,7 @@ export default function SeguimientoEntrenador() {
   const [month, setMonth] = useState(() => athleteToday().slice(0, 7));
   const [loadedMonth, setLoadedMonth] = useState("");
   const [reload, setReload] = useState(0);
+  const [manageContacts,setManageContacts] = useState(false);
   const today = athleteToday();
 
   useEffect(() => {
@@ -39,8 +41,9 @@ export default function SeguimientoEntrenador() {
         const profile = await supabase.from("profiles").select("role").eq("id", auth.data.user.id).single();
         if (!active) return;
         if (profile.error) throw profile.error;
-        if (profile.data?.role !== "admin") { setAccessError("Acceso exclusivo para administradores."); return; }
-        const data = await loadCoachAthletes(supabase);
+        if (!canCoach(profile.data?.role)) { setAccessError("Acceso exclusivo para entrenadores y administración."); return; }
+        setManageContacts(profile.data?.role === "admin");
+        const data = await loadCoachAthletes(supabase, profile.data?.role);
         if (active) {
           const params = new URLSearchParams(window.location.search);
           const requested = params.get("athlete");
@@ -100,8 +103,8 @@ export default function SeguimientoEntrenador() {
 
   return <main className={coach.shell}>
     <aside className={coach.sidebar}><div><div className={coach.logo}>NH</div><p className={coach.brand}>CLUB TRAIL RUNNING ALICANTE</p></div>
-      <nav aria-label="Navegación del entrenador">{[["/dashboard", "Panel principal"], ["/salidas", "Salidas del club"], ["/entrenamientos", "Entrenamientos"], ["/deportistas", "Deportistas"], ["/mensajes", "Mensajes"], ["/objetivos", "Objetivos y preparación"], ["/entrenamientos/plan", "Planificación"], ["/entrenador/seguimiento", "Panel del entrenador"]].map(([href, label]) => <Link key={href} href={href} className={coach.navLink + (href === "/entrenador/seguimiento" ? " " + coach.navActive : "")} aria-current={href === "/entrenador/seguimiento" ? "page" : undefined}>{label}</Link>)}</nav>
-      <div className={coach.tagline}>TU META,<br />MI DESAFÍO</div><div className={coach.mobileNav}><Link href="/dashboard">Inicio</Link><Link href="/entrenamientos/plan">Planificación</Link><Link href="/deportistas">Deportistas</Link></div>
+      <nav aria-label="Navegación del entrenador">{[["/dashboard", "Panel principal"], ["/salidas", "Salidas del club"], ["/entrenamientos", "Entrenamientos"], ["/deportistas", "Deportistas"], ["/mensajes", "Mensajes"], ["/objetivos", "Objetivos y preparación"], ["/entrenamientos/plan", "Planificación"], ["/entrenador/seguimiento", "Panel del entrenador"]].filter(([href])=>manageContacts||href!=="/deportistas").map(([href, label]) => <Link key={href} href={href} className={coach.navLink + (href === "/entrenador/seguimiento" ? " " + coach.navActive : "")} aria-current={href === "/entrenador/seguimiento" ? "page" : undefined}>{label}</Link>)}</nav>
+      <div className={coach.tagline}>TU META,<br />MI DESAFÍO</div><div className={coach.mobileNav}><Link href="/dashboard">Inicio</Link><Link href="/entrenamientos/plan">Planificación</Link>{manageContacts&&<Link href="/deportistas">Deportistas</Link>}</div>
     </aside>
     <div className={coach.content}>
       <p className={coach.eyebrow}>NH / CLUB TRAIL RUNNING ALICANTE</p><h1 className={coach.heading}>Panel del entrenador</h1><p className={coach.intro}>Seguimiento mensual y planificación de los corredores vinculados.</p><Link href="/dashboard" style={linkStyle}>← Volver al panel</Link>
