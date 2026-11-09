@@ -60,3 +60,10 @@ Pruebas de interfaz de acceso, revisión de identidad, guardados inciertos y
 enlaces del panel. Se comprueban TypeScript, la compilación y el lector compilado
 de actividades. La validación visual autenticada del nuevo perfil requiere la
 cuenta de un entrenador; no se cambia el rol de ningún usuario real para probar.
+
+## Instalación de producción
+
+Migración instalada con versión `20261109211354`. Se comprobaron los nueve
+permisos deportivos nuevos, los cinco wrappers públicos sin derechos de definidor
+y sin ejecución anónima, y la ausencia de promociones de cuentas o cambios
+financieros durante la instalación. El asesor no detecta avisos nuevos del paquete.

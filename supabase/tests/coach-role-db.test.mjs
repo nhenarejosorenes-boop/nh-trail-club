@@ -8,7 +8,7 @@ const file = name => readFileSync(new URL(name, import.meta.url), 'utf8');
 before(async () => {
   await db.exec(file('./fixtures/coach-role-baseline.sql'));
   await db.exec('set check_function_bodies=on');
-  await db.exec(file('../migrations/20261109205350_coach_role.sql'));
+  await db.exec(file('../migrations/20261109211354_coach_role.sql'));
 });
 after(() => db.close());
 beforeEach(async () => {
